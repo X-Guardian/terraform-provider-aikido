@@ -85,19 +85,25 @@ terraform {
 
 provider "aikido" {}
 
+data "aikido_users" "all" {}
+
+locals {
+  simon = one([for user in data.aikido_users.all.users : user if user.email == "simon@example.com"])
+}
+
 resource "aikido_team" "platform" {
   name = "Platform Team"
 }
 
 resource "aikido_team_membership" "simon" {
   team_id = aikido_team.platform.id
-  user_id = "66588"
+  user_id = local.simon.id
 }
 
 data "aikido_code_repos" "all" {}
 
 resource "aikido_code_repo_config" "api" {
-  code_repo_id = one([for r in data.aikido_code_repos.all.repos : r if r.name == "my-api"]).id
+  code_repo_id = one([for repo in data.aikido_code_repos.all.repos : repo if repo.name == "my-api"]).id
   sensitivity  = "extreme"
   active       = true
 }
