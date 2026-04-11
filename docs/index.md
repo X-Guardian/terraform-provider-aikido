@@ -12,9 +12,15 @@ The Aikido provider allows you to manage resources in [Aikido Security](https://
 ## Example Usage
 
 ```terraform
+terraform {
+  required_providers {
+    aikido = {
+      source = "X-Guardian/aikido"
+    }
+  }
+}
+
 provider "aikido" {
-  # client_id and client_secret can also be set via
-  # AIKIDO_CLIENT_ID and AIKIDO_CLIENT_SECRET environment variables.
   client_id     = var.aikido_client_id
   client_secret = var.aikido_client_secret
 
