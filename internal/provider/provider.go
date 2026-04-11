@@ -147,6 +147,7 @@ func (p *AikidoProvider) Resources(ctx context.Context) []func() resource.Resour
 		NewCloudKubernetesResource,
 		NewContainerConfigResource,
 		NewDomainResource,
+		NewWebhookResource,
 	}
 }
 
