@@ -15,13 +15,13 @@ import (
 
 // User represents a user in the Aikido API.
 type User struct {
-	ID                int    `json:"id"`
-	FullName          string `json:"full_name"`
-	Email             string `json:"email"`
-	Active            int    `json:"active"`
+	ID                 int    `json:"id"`
+	FullName           string `json:"full_name"`
+	Email              string `json:"email"`
+	Active             int    `json:"active"`
 	LastLoginTimestamp int64  `json:"last_login_timestamp"`
-	Role              string `json:"role"`
-	AuthType          string `json:"auth_type"`
+	Role               string `json:"role"`
+	AuthType           string `json:"auth_type"`
 }
 
 // ListUsersOptions contains optional filters for listing users.

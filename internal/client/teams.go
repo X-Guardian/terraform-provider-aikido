@@ -13,12 +13,12 @@ import (
 
 // Team represents a team in the Aikido API.
 type Team struct {
-	ID               int                `json:"id"`
-	Name             string             `json:"name"`
-	ExternalSource   *string            `json:"external_source"`
-	ExternalSourceID *string            `json:"external_source_id"`
-	Responsibilities []Responsibility   `json:"responsibilities"`
-	Active           bool               `json:"active"`
+	ID               int              `json:"id"`
+	Name             string           `json:"name"`
+	ExternalSource   *string          `json:"external_source"`
+	ExternalSourceID *string          `json:"external_source_id"`
+	Responsibilities []Responsibility `json:"responsibilities"`
+	Active           bool             `json:"active"`
 }
 
 // Responsibility represents a resource assigned to a team.
