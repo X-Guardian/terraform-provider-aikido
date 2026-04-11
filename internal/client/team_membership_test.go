@@ -5,7 +5,6 @@ package client
 
 import (
 	"context"
-	"encoding/json"
 	"net/http"
 	"testing"
 )
@@ -19,7 +18,7 @@ func TestAddUserToTeam(t *testing.T) {
 			t.Errorf("unexpected path: %s", r.URL.Path)
 		}
 		var body map[string]int
-		json.NewDecoder(r.Body).Decode(&body)
+		mustDecode(t, r, &body)
 		if body["user_id"] != 5 {
 			t.Errorf("expected user_id 5, got %d", body["user_id"])
 		}
@@ -36,7 +35,9 @@ func TestAddUserToTeam(t *testing.T) {
 func TestAddUserToTeam_NotFound(t *testing.T) {
 	server, c := newTestServer(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusNotFound)
-		w.Write([]byte(`{"error":"The team or user has not been found"}`))
+		if _, err := w.Write([]byte(`{"error":"The team or user has not been found"}`)); err != nil {
+			t.Fatalf("failed to write response: %v", err)
+		}
 	})
 	defer server.Close()
 
@@ -72,7 +73,7 @@ func TestIsUserInTeam_Found(t *testing.T) {
 		if r.URL.Query().Get("filter_team_id") != "10" {
 			t.Errorf("expected filter_team_id=10, got %s", r.URL.Query().Get("filter_team_id"))
 		}
-		json.NewEncoder(w).Encode([]User{
+		mustEncode(t, w, []User{
 			{ID: 3},
 			{ID: 5},
 			{ID: 7},
@@ -91,7 +92,7 @@ func TestIsUserInTeam_Found(t *testing.T) {
 
 func TestIsUserInTeam_NotFound(t *testing.T) {
 	server, c := newTestServer(func(w http.ResponseWriter, r *http.Request) {
-		json.NewEncoder(w).Encode([]User{
+		mustEncode(t, w, []User{
 			{ID: 3},
 			{ID: 7},
 		})

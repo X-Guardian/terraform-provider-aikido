@@ -27,11 +27,13 @@ func TestAuthenticate_Success(t *testing.T) {
 		}
 
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(tokenResponse{
+		if err := json.NewEncoder(w).Encode(tokenResponse{
 			AccessToken: "test-token",
 			ExpiresIn:   3600,
 			TokenType:   "bearer",
-		})
+		}); err != nil {
+			t.Fatalf("failed to encode response: %v", err)
+		}
 	}))
 	defer server.Close()
 
@@ -48,7 +50,9 @@ func TestAuthenticate_Success(t *testing.T) {
 func TestAuthenticate_BadCredentials(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusBadRequest)
-		w.Write([]byte(`{"error":"invalid_client"}`))
+		if _, err := w.Write([]byte(`{"error":"invalid_client"}`)); err != nil {
+			t.Fatalf("failed to write response: %v", err)
+		}
 	}))
 	defer server.Close()
 
@@ -64,11 +68,13 @@ func TestDoRequest_SetsAuthHeader(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/api/oauth/token" {
 			w.Header().Set("Content-Type", "application/json")
-			json.NewEncoder(w).Encode(tokenResponse{
+			if err := json.NewEncoder(w).Encode(tokenResponse{
 				AccessToken: "my-bearer-token",
 				ExpiresIn:   3600,
 				TokenType:   "bearer",
-			})
+			}); err != nil {
+				t.Fatalf("failed to encode response: %v", err)
+			}
 			return
 		}
 
@@ -78,7 +84,9 @@ func TestDoRequest_SetsAuthHeader(t *testing.T) {
 			t.Errorf("expected 'Bearer my-bearer-token', got %q", authHeader)
 		}
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(`[]`))
+		if _, err := w.Write([]byte(`[]`)); err != nil {
+			t.Fatalf("failed to write response: %v", err)
+		}
 	}))
 	defer server.Close()
 

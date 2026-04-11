@@ -15,7 +15,7 @@ func newTestServer(handler http.HandlerFunc) (*httptest.Server, *AikidoClient) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/api/oauth/token" {
 			w.Header().Set("Content-Type", "application/json")
-			json.NewEncoder(w).Encode(tokenResponse{
+			_ = json.NewEncoder(w).Encode(tokenResponse{
 				AccessToken: "test-token",
 				ExpiresIn:   3600,
 				TokenType:   "bearer",
@@ -28,20 +28,34 @@ func newTestServer(handler http.HandlerFunc) (*httptest.Server, *AikidoClient) {
 	return server, client
 }
 
+func mustEncode(t *testing.T, w http.ResponseWriter, v interface{}) {
+	t.Helper()
+	if err := json.NewEncoder(w).Encode(v); err != nil {
+		t.Fatalf("failed to encode response: %v", err)
+	}
+}
+
+func mustDecode(t *testing.T, r *http.Request, v interface{}) {
+	t.Helper()
+	if err := json.NewDecoder(r.Body).Decode(v); err != nil {
+		t.Fatalf("failed to decode request: %v", err)
+	}
+}
+
 func TestCreateTeam(t *testing.T) {
 	server, c := newTestServer(func(w http.ResponseWriter, r *http.Request) {
 		switch {
 		case r.Method == http.MethodPost && r.URL.Path == "/api/public/v1/teams":
 			var req CreateTeamRequest
-			json.NewDecoder(r.Body).Decode(&req)
+			mustDecode(t, r, &req)
 			if req.Name != "test-team" {
 				t.Errorf("expected name 'test-team', got %q", req.Name)
 			}
 			w.WriteHeader(http.StatusCreated)
-			json.NewEncoder(w).Encode(map[string]interface{}{"id": 42})
+			mustEncode(t, w, map[string]interface{}{"id": 42})
 
 		case r.Method == http.MethodGet && r.URL.Path == "/api/public/v1/teams":
-			json.NewEncoder(w).Encode([]Team{
+			mustEncode(t, w, []Team{
 				{ID: 42, Name: "test-team", Active: true},
 			})
 
@@ -66,11 +80,10 @@ func TestCreateTeam(t *testing.T) {
 
 func TestGetTeam_Found(t *testing.T) {
 	server, c := newTestServer(func(w http.ResponseWriter, r *http.Request) {
-		teams := []Team{
+		mustEncode(t, w, []Team{
 			{ID: 1, Name: "team-a"},
 			{ID: 2, Name: "team-b"},
-		}
-		json.NewEncoder(w).Encode(teams)
+		})
 	})
 	defer server.Close()
 
@@ -85,7 +98,7 @@ func TestGetTeam_Found(t *testing.T) {
 
 func TestGetTeam_NotFound(t *testing.T) {
 	server, c := newTestServer(func(w http.ResponseWriter, r *http.Request) {
-		json.NewEncoder(w).Encode([]Team{})
+		mustEncode(t, w, []Team{})
 	})
 	defer server.Close()
 
@@ -100,21 +113,19 @@ func TestGetTeam_Pagination(t *testing.T) {
 	server, c := newTestServer(func(w http.ResponseWriter, r *http.Request) {
 		switch page {
 		case 0:
-			// First page: 20 teams (IDs 1-20), target not here.
 			teams := make([]Team, 20)
 			for i := range teams {
 				teams[i] = Team{ID: i + 1, Name: "team"}
 			}
-			json.NewEncoder(w).Encode(teams)
+			mustEncode(t, w, teams)
 			page++
 		case 1:
-			// Second page: target team is here.
-			json.NewEncoder(w).Encode([]Team{
+			mustEncode(t, w, []Team{
 				{ID: 21, Name: "target-team"},
 			})
 			page++
 		default:
-			json.NewEncoder(w).Encode([]Team{})
+			mustEncode(t, w, []Team{})
 		}
 	})
 	defer server.Close()
@@ -137,7 +148,7 @@ func TestUpdateTeam(t *testing.T) {
 			t.Errorf("unexpected path: %s", r.URL.Path)
 		}
 		var req UpdateTeamRequest
-		json.NewDecoder(r.Body).Decode(&req)
+		mustDecode(t, r, &req)
 		if req.Name != "updated-name" {
 			t.Errorf("expected name 'updated-name', got %q", req.Name)
 		}
@@ -169,7 +180,9 @@ func TestDeleteTeam_Success(t *testing.T) {
 func TestDeleteTeam_ImportedTeam(t *testing.T) {
 	server, c := newTestServer(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusBadRequest)
-		w.Write([]byte(`{"error":"Imported teams cannot be deleted."}`))
+		if _, err := w.Write([]byte(`{"error":"Imported teams cannot be deleted."}`)); err != nil {
+			t.Fatalf("failed to write response: %v", err)
+		}
 	})
 	defer server.Close()
 
@@ -184,15 +197,13 @@ func TestListTeams(t *testing.T) {
 	server, c := newTestServer(func(w http.ResponseWriter, r *http.Request) {
 		switch page {
 		case 0:
-			teams := []Team{
+			mustEncode(t, w, []Team{
 				{ID: 1, Name: "team-a"},
 				{ID: 2, Name: "team-b"},
-			}
-			json.NewEncoder(w).Encode(teams)
+			})
 			page++
 		default:
-			// Less than 20 means last page.
-			json.NewEncoder(w).Encode([]Team{})
+			mustEncode(t, w, []Team{})
 		}
 	})
 	defer server.Close()
