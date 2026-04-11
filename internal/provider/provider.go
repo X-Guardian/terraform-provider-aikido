@@ -1,6 +1,3 @@
-// Copyright IBM Corp. 2021, 2025
-// SPDX-License-Identifier: MPL-2.0
-
 package provider
 
 import (
@@ -143,6 +140,7 @@ func (p *AikidoProvider) Resources(ctx context.Context) []func() resource.Resour
 		NewTeamResource,
 		NewTeamMembershipResource,
 		NewTeamResourceLinkResource,
+		NewCodeRepoConfigResource,
 		NewCloudAWSResource,
 		NewCloudAzureResource,
 		NewCloudGCPResource,
