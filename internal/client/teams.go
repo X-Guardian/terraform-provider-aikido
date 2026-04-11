@@ -152,6 +152,73 @@ func (c *AikidoClient) UpdateTeam(ctx context.Context, teamID int, req UpdateTea
 	return nil
 }
 
+// resourceTypeToBodyField maps Aikido responsibility types to the API body field names.
+var resourceTypeToBodyField = map[string]string{
+	"code_repository":      "repo_id",
+	"container_repository": "image_id",
+	"cloud":                "cloud_id",
+	"domain":               "domain_id",
+	"zen_app":              "zen_app_id",
+}
+
+// LinkResourceToTeam links a resource to a team.
+func (c *AikidoClient) LinkResourceToTeam(ctx context.Context, teamID int, resourceType string, resourceID int) error {
+	field, ok := resourceTypeToBodyField[resourceType]
+	if !ok {
+		return fmt.Errorf("unknown resource type: %s", resourceType)
+	}
+
+	resp, err := c.DoRequest(ctx, http.MethodPost, fmt.Sprintf("/teams/%d/linkResource", teamID), map[string]int{field: resourceID})
+	if err != nil {
+		return fmt.Errorf("linking resource to team: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("unexpected status %d linking resource to team: %s", resp.StatusCode, string(body))
+	}
+
+	return nil
+}
+
+// UnlinkResourceFromTeam unlinks a resource from a team.
+func (c *AikidoClient) UnlinkResourceFromTeam(ctx context.Context, teamID int, resourceType string, resourceID int) error {
+	field, ok := resourceTypeToBodyField[resourceType]
+	if !ok {
+		return fmt.Errorf("unknown resource type: %s", resourceType)
+	}
+
+	resp, err := c.DoRequest(ctx, http.MethodPost, fmt.Sprintf("/teams/%d/unlinkResource", teamID), map[string]int{field: resourceID})
+	if err != nil {
+		return fmt.Errorf("unlinking resource from team: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("unexpected status %d unlinking resource from team: %s", resp.StatusCode, string(body))
+	}
+
+	return nil
+}
+
+// IsResourceLinkedToTeam checks if a resource is linked to a team via the team's responsibilities.
+func (c *AikidoClient) IsResourceLinkedToTeam(ctx context.Context, teamID int, resourceType string, resourceID int) (bool, error) {
+	team, err := c.GetTeam(ctx, teamID)
+	if err != nil {
+		return false, err
+	}
+
+	for _, r := range team.Responsibilities {
+		if r.Type == resourceType && r.ID == resourceID {
+			return true, nil
+		}
+	}
+
+	return false, nil
+}
+
 // AddUserToTeam adds a user to a team.
 func (c *AikidoClient) AddUserToTeam(ctx context.Context, teamID, userID int) error {
 	resp, err := c.DoRequest(ctx, http.MethodPost, fmt.Sprintf("/teams/%d/addUser", teamID), map[string]int{"user_id": userID})

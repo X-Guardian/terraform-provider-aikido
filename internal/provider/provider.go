@@ -142,6 +142,7 @@ func (p *AikidoProvider) Resources(ctx context.Context) []func() resource.Resour
 	return []func() resource.Resource{
 		NewTeamResource,
 		NewTeamMembershipResource,
+		NewTeamResourceLinkResource,
 	}
 }
 
@@ -149,6 +150,7 @@ func (p *AikidoProvider) DataSources(ctx context.Context) []func() datasource.Da
 	return []func() datasource.DataSource{
 		NewTeamsDataSource,
 		NewUsersDataSource,
+		NewCodeReposDataSource,
 	}
 }
 

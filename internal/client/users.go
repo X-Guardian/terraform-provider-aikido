@@ -30,25 +30,50 @@ type ListUsersOptions struct {
 	IncludeInactive bool
 }
 
-// ListUsers returns all users, optionally filtered.
+// ListUsers returns all users by paginating through every page.
 func (c *AikidoClient) ListUsers(ctx context.Context, opts *ListUsersOptions) ([]User, error) {
-	params := url.Values{}
+	var allUsers []User
+	page := 0
+	perPage := 20
 
-	if opts != nil {
-		if opts.TeamID != nil {
-			params.Set("filter_team_id", strconv.Itoa(*opts.TeamID))
+	for {
+		params := url.Values{}
+		params.Set("page", strconv.Itoa(page))
+		params.Set("per_page", strconv.Itoa(perPage))
+
+		if opts != nil {
+			if opts.TeamID != nil {
+				params.Set("filter_team_id", strconv.Itoa(*opts.TeamID))
+			}
+			if opts.IncludeInactive {
+				params.Set("include_inactive", "1")
+			}
 		}
-		if opts.IncludeInactive {
-			params.Set("include_inactive", "1")
+
+		users, err := c.getUsersPage(ctx, params)
+		if err != nil {
+			return nil, err
 		}
+
+		if len(users) == 0 {
+			break
+		}
+
+		allUsers = append(allUsers, users...)
+
+		if len(users) < perPage {
+			break
+		}
+
+		page++
 	}
 
-	path := "/users"
-	if len(params) > 0 {
-		path += "?" + params.Encode()
-	}
+	return allUsers, nil
+}
 
-	resp, err := c.DoRequest(ctx, http.MethodGet, path, nil)
+// getUsersPage fetches a single page of users.
+func (c *AikidoClient) getUsersPage(ctx context.Context, params url.Values) ([]User, error) {
+	resp, err := c.DoRequest(ctx, http.MethodGet, "/users?"+params.Encode(), nil)
 	if err != nil {
 		return nil, fmt.Errorf("listing users: %w", err)
 	}
