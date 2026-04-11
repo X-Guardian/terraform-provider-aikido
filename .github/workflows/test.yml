@@ -78,5 +78,7 @@ jobs:
       - run: go mod download
       - env:
           TF_ACC: "1"
+          AIKIDO_CLIENT_ID: ${{ secrets.AIKIDO_CLIENT_ID }}
+          AIKIDO_CLIENT_SECRET: ${{ secrets.AIKIDO_CLIENT_SECRET }}
         run: go test -v -cover ./internal/provider/
         timeout-minutes: 10

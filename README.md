@@ -1,51 +1,68 @@
-# Terraform Provider Scaffolding (Terraform Plugin Framework)
+# Terraform Provider for Aikido Security
 
-_This template repository is built on the [Terraform Plugin Framework](https://github.com/hashicorp/terraform-plugin-framework). The template repository built on the [Terraform Plugin SDK](https://github.com/hashicorp/terraform-plugin-sdk) can be found at [terraform-provider-scaffolding](https://github.com/hashicorp/terraform-provider-scaffolding). See [Which SDK Should I Use?](https://developer.hashicorp.com/terraform/plugin/framework-benefits) in the Terraform documentation for additional information._
-
-This repository is a *template* for a [Terraform](https://www.terraform.io) provider. It is intended as a starting point for creating Terraform providers, containing:
-
-- A resource and a data source (`internal/provider/`),
-- Examples (`examples/`) and generated documentation (`docs/`),
-- Miscellaneous meta files.
-
-These files contain boilerplate code that you will need to edit to create your own Terraform provider. Tutorials for creating Terraform providers can be found on the [HashiCorp Developer](https://developer.hashicorp.com/terraform/tutorials/providers-plugin-framework) platform. _Terraform Plugin Framework specific guides are titled accordingly._
-
-Please see the [GitHub template repository documentation](https://help.github.com/en/github/creating-cloning-and-archiving-repositories/creating-a-repository-from-a-template) for how to create a new repository from this template on GitHub.
-
-Once you've written your provider, you'll want to [publish it on the Terraform Registry](https://developer.hashicorp.com/terraform/registry/providers/publishing) so that others can use it.
+The Aikido Terraform provider allows you to manage resources in [Aikido Security](https://www.aikido.dev/) via the [management API](https://apidocs.aikido.dev/).
 
 ## Requirements
 
 - [Terraform](https://developer.hashicorp.com/terraform/downloads) >= 1.0
 - [Go](https://golang.org/doc/install) >= 1.24
 
+## Supported Resources
+
+- `aikido_team` — Manage teams in your Aikido workspace.
+
+## Supported Data Sources
+
+- `aikido_teams` — List all teams in your Aikido workspace.
+
+## Authentication
+
+The provider authenticates using OAuth2 client credentials. You can obtain a client ID and secret from the Aikido dashboard.
+
+```hcl
+provider "aikido" {
+  client_id     = var.aikido_client_id
+  client_secret = var.aikido_client_secret
+  region        = "eu" # "eu" (default), "us", or "me"
+}
+```
+
+Credentials can also be provided via environment variables:
+
+- `AIKIDO_CLIENT_ID`
+- `AIKIDO_CLIENT_SECRET`
+- `AIKIDO_REGION` (optional, defaults to `eu`)
+- `AIKIDO_API_URL` (optional, overrides region)
+
+## Usage
+
+```hcl
+terraform {
+  required_providers {
+    aikido = {
+      source = "X-Guardian/aikido"
+    }
+  }
+}
+
+provider "aikido" {}
+
+resource "aikido_team" "platform" {
+  name = "Platform Team"
+}
+
+data "aikido_teams" "all" {}
+```
+
 ## Building the Provider
 
 1. Clone the repository
-1. Enter the repository directory
-1. Build the provider using the Go `install` command:
+2. Enter the repository directory
+3. Build the provider:
 
 ```shell
 go install
 ```
-
-## Adding Dependencies
-
-This provider uses [Go modules](https://github.com/golang/go/wiki/Modules).
-Please see the Go documentation for the most up to date information about using Go modules.
-
-To add a new dependency `github.com/author/dependency` to your Terraform provider:
-
-```shell
-go get github.com/author/dependency
-go mod tidy
-```
-
-Then commit the changes to `go.mod` and `go.sum`.
-
-## Using the Provider
-
-Fill this in for each provider
 
 ## Developing the Provider
 
@@ -55,10 +72,20 @@ To compile the provider, run `go install`. This will build the provider and put 
 
 To generate or update documentation, run `make generate`.
 
-In order to run the full suite of Acceptance tests, run `make testacc`.
+### Running Tests
 
-*Note:* Acceptance tests create real resources, and often cost money to run.
+Unit tests:
 
 ```shell
+make test
+```
+
+Acceptance tests (require valid Aikido credentials):
+
+```shell
+export AIKIDO_CLIENT_ID="your-client-id"
+export AIKIDO_CLIENT_SECRET="your-client-secret"
 make testacc
 ```
+
+**Note:** Acceptance tests create real resources in your Aikido workspace.
