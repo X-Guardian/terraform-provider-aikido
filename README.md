@@ -5,15 +5,53 @@ The Aikido Terraform provider allows you to manage resources in [Aikido Security
 ## Requirements
 
 - [Terraform](https://developer.hashicorp.com/terraform/downloads) >= 1.0
-- [Go](https://golang.org/doc/install) >= 1.24
+- [Go](https://golang.org/doc/install) >= 1.26
 
 ## Supported Resources
 
-- `aikido_team` — Manage teams in your Aikido workspace.
+### Teams
+- `aikido_team` — Manage teams.
+- `aikido_team_membership` — Manage user membership in a team.
+- `aikido_team_resource_link` — Link code repos, containers, clouds, or domains to a team.
+
+### Code Repositories
+- `aikido_code_repo_config` — Manage scanning configuration (sensitivity, connectivity, excluded paths) of an existing code repository.
+
+### Containers
+- `aikido_container_config` — Manage scanning configuration (sensitivity, connectivity, tag filter) of an existing container repository.
+
+### Cloud Environments
+- `aikido_cloud_aws` — Connect an AWS cloud environment.
+- `aikido_cloud_azure` — Connect an Azure cloud environment.
+- `aikido_cloud_gcp` — Connect a GCP cloud environment.
+- `aikido_cloud_kubernetes` — Connect a Kubernetes cluster.
+
+### Domains
+- `aikido_domain` — Manage domains for surface monitoring and DAST scanning.
+
+### Webhooks
+- `aikido_webhook` — Manage webhooks for event notifications.
+
+### Custom SAST Rules
+- `aikido_custom_sast_rule` — Manage custom semgrep SAST rules.
+
+### Zen (Runtime Firewall)
+- `aikido_zen_app` — Manage Zen runtime firewall apps.
+- `aikido_zen_app_blocking` — Enable/disable blocking mode.
+- `aikido_zen_app_countries` — Manage country-based IP blocking.
+- `aikido_zen_app_ip_blocklist` — Manage custom IP blocklist.
+- `aikido_zen_app_bot_lists` — Manage bot list subscriptions.
+- `aikido_zen_app_ip_lists` — Manage threat actor IP lists and Tor traffic.
 
 ## Supported Data Sources
 
-- `aikido_teams` — List all teams in your Aikido workspace.
+- `aikido_teams` — List all teams.
+- `aikido_users` — List users with optional team and inactive filters.
+- `aikido_code_repos` — List code repositories with optional name, branch, and inactive filters.
+- `aikido_clouds` — List all connected cloud environments.
+- `aikido_containers` — List container repositories with optional name, tag, team, and status filters.
+- `aikido_domains` — List all domains.
+- `aikido_zen_apps` — List all Zen runtime firewall apps.
 
 ## Authentication
 
@@ -51,8 +89,23 @@ resource "aikido_team" "platform" {
   name = "Platform Team"
 }
 
-data "aikido_teams" "all" {}
+resource "aikido_team_membership" "simon" {
+  team_id = aikido_team.platform.id
+  user_id = "66588"
+}
+
+data "aikido_code_repos" "all" {}
+
+resource "aikido_code_repo_config" "api" {
+  code_repo_id = one([for r in data.aikido_code_repos.all.repos : r if r.name == "my-api"]).id
+  sensitivity  = "extreme"
+  active       = true
+}
 ```
+
+## Rate Limiting
+
+The Aikido API has a rate limit of 20 requests per minute per workspace. The provider includes a built-in rate limiter (18 req/min) to stay within this limit, plus automatic retry with `Retry-After` header support for 429 responses.
 
 ## Building the Provider
 
