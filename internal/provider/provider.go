@@ -145,6 +145,7 @@ func (p *AikidoProvider) Resources(ctx context.Context) []func() resource.Resour
 		NewCloudAzureResource,
 		NewCloudGCPResource,
 		NewCloudKubernetesResource,
+		NewContainerConfigResource,
 	}
 }
 
@@ -154,6 +155,7 @@ func (p *AikidoProvider) DataSources(ctx context.Context) []func() datasource.Da
 		NewUsersDataSource,
 		NewCodeReposDataSource,
 		NewCloudsDataSource,
+		NewContainersDataSource,
 	}
 }
 
