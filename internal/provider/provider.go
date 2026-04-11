@@ -149,6 +149,12 @@ func (p *AikidoProvider) Resources(ctx context.Context) []func() resource.Resour
 		NewDomainResource,
 		NewWebhookResource,
 		NewCustomRuleResource,
+		NewZenAppResource,
+		NewZenAppBlockingResource,
+		NewZenAppCountriesResource,
+		NewZenAppIPBlocklistResource,
+		NewZenAppBotListsResource,
+		NewZenAppIPListsResource,
 	}
 }
 
@@ -160,6 +166,7 @@ func (p *AikidoProvider) DataSources(ctx context.Context) []func() datasource.Da
 		NewCloudsDataSource,
 		NewContainersDataSource,
 		NewDomainsDataSource,
+		NewZenAppsDataSource,
 	}
 }
 
