@@ -29,6 +29,7 @@ website/vendor
 
 # Local test configuration
 /test/
+openapi-spec.json
 
 # Test exclusions
 !command/test-fixtures/**/*.tfstate
