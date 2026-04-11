@@ -148,6 +148,7 @@ func (p *AikidoProvider) Resources(ctx context.Context) []func() resource.Resour
 		NewContainerConfigResource,
 		NewDomainResource,
 		NewWebhookResource,
+		NewCustomRuleResource,
 	}
 }
 
