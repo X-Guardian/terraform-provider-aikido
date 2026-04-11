@@ -91,6 +91,7 @@ func TestDoRequest_SetsAuthHeader(t *testing.T) {
 	defer server.Close()
 
 	c := NewAikidoClient(server.URL, "test-id", "test-secret")
+	c.SetRateLimit(1000)
 	resp, err := c.DoRequest(context.Background(), http.MethodGet, "/teams", nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)

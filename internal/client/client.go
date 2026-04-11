@@ -12,9 +12,12 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
+
+	"golang.org/x/time/rate"
 )
 
 // AikidoClient handles authentication and HTTP requests to the Aikido API.
@@ -27,6 +30,7 @@ type AikidoClient struct {
 	mu          sync.Mutex
 	accessToken string
 	tokenExpiry time.Time
+	limiter     *rate.Limiter
 }
 
 type tokenResponse struct {
@@ -36,13 +40,21 @@ type tokenResponse struct {
 }
 
 // NewAikidoClient creates a new Aikido API client.
+// The rate limiter is set to 18 requests per minute (slightly under the 20/min API limit)
+// to avoid hitting 429s from parallel Terraform operations.
 func NewAikidoClient(baseURL, clientID, clientSecret string) *AikidoClient {
 	return &AikidoClient{
 		BaseURL:      strings.TrimRight(baseURL, "/"),
 		ClientID:     clientID,
 		ClientSecret: clientSecret,
 		HTTPClient:   &http.Client{Timeout: 30 * time.Second},
+		limiter:      rate.NewLimiter(rate.Every(time.Minute/18), 1),
 	}
+}
+
+// SetRateLimit overrides the default rate limiter. Useful for testing.
+func (c *AikidoClient) SetRateLimit(requestsPerSecond float64) {
+	c.limiter = rate.NewLimiter(rate.Limit(requestsPerSecond), 1)
 }
 
 // authenticate obtains or refreshes the OAuth2 access token.
@@ -94,6 +106,8 @@ func (c *AikidoClient) authenticate(ctx context.Context) error {
 
 // DoRequest performs an authenticated HTTP request to the Aikido API.
 // The path should be relative to /api/public/v1 (e.g., "/teams").
+// Requests are rate-limited to stay within the API's 20 calls/minute limit.
+// Automatically retries on 429 Too Many Requests using the Retry-After header.
 func (c *AikidoClient) DoRequest(ctx context.Context, method, path string, body interface{}) (*http.Response, error) {
 	if err := c.authenticate(ctx); err != nil {
 		return nil, fmt.Errorf("authentication failed: %w", err)
@@ -101,29 +115,67 @@ func (c *AikidoClient) DoRequest(ctx context.Context, method, path string, body 
 
 	fullURL := c.BaseURL + "/api/public/v1" + path
 
-	var bodyReader io.Reader
+	var jsonBytes []byte
 	if body != nil {
-		jsonBytes, err := json.Marshal(body)
+		var err error
+		jsonBytes, err = json.Marshal(body)
 		if err != nil {
 			return nil, fmt.Errorf("marshaling request body: %w", err)
 		}
-		bodyReader = bytes.NewReader(jsonBytes)
 	}
 
-	req, err := http.NewRequestWithContext(ctx, method, fullURL, bodyReader)
-	if err != nil {
-		return nil, fmt.Errorf("creating request: %w", err)
+	maxRetries := 3
+	for attempt := 0; attempt <= maxRetries; attempt++ {
+		// Wait for rate limiter before sending.
+		if err := c.limiter.Wait(ctx); err != nil {
+			return nil, fmt.Errorf("rate limiter: %w", err)
+		}
+
+		var bodyReader io.Reader
+		if jsonBytes != nil {
+			bodyReader = bytes.NewReader(jsonBytes)
+		}
+
+		req, err := http.NewRequestWithContext(ctx, method, fullURL, bodyReader)
+		if err != nil {
+			return nil, fmt.Errorf("creating request: %w", err)
+		}
+
+		req.Header.Set("Authorization", "Bearer "+c.accessToken)
+		if body != nil {
+			req.Header.Set("Content-Type", "application/json")
+		}
+
+		resp, err := c.HTTPClient.Do(req)
+		if err != nil {
+			return nil, fmt.Errorf("executing request: %w", err)
+		}
+
+		if resp.StatusCode != http.StatusTooManyRequests {
+			return resp, nil
+		}
+
+		resp.Body.Close()
+
+		if attempt == maxRetries {
+			return nil, fmt.Errorf("rate limited after %d retries", maxRetries)
+		}
+
+		// Back off using Retry-After header, falling back to 30s.
+		retryAfter := resp.Header.Get("Retry-After")
+		wait := 30 * time.Second
+		if retryAfter != "" {
+			if seconds, err := strconv.Atoi(retryAfter); err == nil {
+				wait = time.Duration(seconds) * time.Second
+			}
+		}
+
+		select {
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		case <-time.After(wait):
+		}
 	}
 
-	req.Header.Set("Authorization", "Bearer "+c.accessToken)
-	if body != nil {
-		req.Header.Set("Content-Type", "application/json")
-	}
-
-	resp, err := c.HTTPClient.Do(req)
-	if err != nil {
-		return nil, fmt.Errorf("executing request: %w", err)
-	}
-
-	return resp, nil
+	return nil, fmt.Errorf("rate limited: exhausted retries")
 }

@@ -25,6 +25,7 @@ func newTestServer(handler http.HandlerFunc) (*httptest.Server, *AikidoClient) {
 		handler(w, r)
 	}))
 	client := NewAikidoClient(server.URL, "test-id", "test-secret")
+	client.SetRateLimit(1000) // Effectively disable rate limiting in tests
 	return server, client
 }
 
