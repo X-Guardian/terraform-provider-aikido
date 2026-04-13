@@ -37,4 +37,4 @@ website/vendor
 # Local test configuration
 /test/
 openapi-spec.json
-gpg.txt
+/secrets/
