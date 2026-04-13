@@ -111,7 +111,17 @@ resource "aikido_code_repo_config" "api" {
 
 ## Rate Limiting
 
-The Aikido API has a rate limit of 20 requests per minute per workspace. The provider includes a built-in rate limiter (18 req/min) to stay within this limit, plus automatic retry with `Retry-After` header support for 429 responses.
+The Aikido API has a default rate limit of 20 requests per minute per workspace (standard tier). An enhanced tier of 50 requests per minute is available on request from Aikido.
+
+The provider includes a built-in rate limiter to stay within these limits, plus automatic retry with `Retry-After` header support for 429 responses.
+
+```hcl
+provider "aikido" {
+  rate_limit_tier = "enhanced" # 50 req/min. Default: "standard" (20 req/min)
+}
+```
+
+The tier can also be set via the `AIKIDO_RATE_LIMIT_TIER` environment variable.
 
 ## Building the Provider
 
