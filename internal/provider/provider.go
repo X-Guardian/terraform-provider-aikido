@@ -24,10 +24,11 @@ type AikidoProvider struct {
 
 // AikidoProviderModel describes the provider data model.
 type AikidoProviderModel struct {
-	ClientID     types.String `tfsdk:"client_id"`
-	ClientSecret types.String `tfsdk:"client_secret"`
-	Region       types.String `tfsdk:"region"`
-	ApiUrl       types.String `tfsdk:"api_url"`
+	ClientID      types.String `tfsdk:"client_id"`
+	ClientSecret  types.String `tfsdk:"client_secret"`
+	Region        types.String `tfsdk:"region"`
+	ApiUrl        types.String `tfsdk:"api_url"`
+	RateLimitTier types.String `tfsdk:"rate_limit_tier"`
 }
 
 var regionURLs = map[string]string{
@@ -64,6 +65,13 @@ func (p *AikidoProvider) Schema(ctx context.Context, req provider.SchemaRequest,
 			"api_url": schema.StringAttribute{
 				MarkdownDescription: "Override the Aikido API base URL. Takes precedence over `region`. Can also be set via the `AIKIDO_API_URL` environment variable.",
 				Optional:            true,
+			},
+			"rate_limit_tier": schema.StringAttribute{
+				MarkdownDescription: "The API rate limit tier: `standard` (20 req/min, default) or `enhanced` (50 req/min). Can also be set via the `AIKIDO_RATE_LIMIT_TIER` environment variable.",
+				Optional:            true,
+				Validators: []validator.String{
+					stringvalidator.OneOf("standard", "enhanced"),
+				},
 			},
 		},
 	}
@@ -130,6 +138,15 @@ func (p *AikidoProvider) Configure(ctx context.Context, req provider.ConfigureRe
 	}
 
 	aikidoClient := client.NewAikidoClient(baseURL, clientID, clientSecret)
+
+	// Resolve rate limit tier: config > env > default "standard"
+	rateLimitTier := data.RateLimitTier.ValueString()
+	if rateLimitTier == "" {
+		rateLimitTier = os.Getenv("AIKIDO_RATE_LIMIT_TIER")
+	}
+	if rateLimitTier == "enhanced" {
+		aikidoClient.SetRateLimit(48.0 / 60.0) // 48 req/min (under the 50/min limit)
+	}
 
 	resp.DataSourceData = aikidoClient
 	resp.ResourceData = aikidoClient
