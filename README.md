@@ -1,11 +1,17 @@
 # Terraform Provider for Aikido Security
 
-The Aikido Terraform provider allows you to manage resources in [Aikido Security](https://www.aikido.dev/) via the [management API](https://apidocs.aikido.dev/).
+[![GitHub release (latest by date)][release-badge]][releases]
+[![Terraform Downloads][downloads-badge]][registry]
+[![Tests][tests-badge]][tests]
+[![Go Report Card][report-badge]][report]
+[![License: MPL-2.0][license-badge]][license]
+
+The Aikido Terraform provider allows you to manage resources in [Aikido Security][aikido] via the [management API][api-docs].
 
 ## Requirements
 
-- [Terraform](https://developer.hashicorp.com/terraform/downloads) >= 1.0
-- [Go](https://golang.org/doc/install) >= 1.26
+- [Terraform][terraform] >= 1.0
+- [Go][go] >= 1.26
 
 ## Supported Resources
 
@@ -135,7 +141,7 @@ go install
 
 ## Developing the Provider
 
-If you wish to work on the provider, you'll first need [Go](http://www.golang.org) installed on your machine (see [Requirements](#requirements) above).
+If you wish to work on the provider, you'll first need [Go][go] installed on your machine (see [Requirements](#requirements) above).
 
 To compile the provider, run `go install`. This will build the provider and put the provider binary in the `$GOPATH/bin` directory.
 
@@ -158,3 +164,18 @@ make testacc
 ```
 
 **Note:** Acceptance tests create real resources in your Aikido workspace.
+
+[release-badge]: https://img.shields.io/github/v/release/X-Guardian/terraform-provider-aikido
+[releases]: https://github.com/X-Guardian/terraform-provider-aikido/releases
+[downloads-badge]: https://img.shields.io/terraform/provider/dt/1749479?logo=terraform&label=registry%20downloads
+[registry]: https://registry.terraform.io/providers/X-Guardian/aikido/latest
+[tests-badge]: https://github.com/X-Guardian/terraform-provider-aikido/actions/workflows/test.yml/badge.svg
+[tests]: https://github.com/X-Guardian/terraform-provider-aikido/actions/workflows/test.yml
+[report-badge]: https://goreportcard.com/badge/github.com/X-Guardian/terraform-provider-aikido
+[report]: https://goreportcard.com/report/github.com/X-Guardian/terraform-provider-aikido
+[license-badge]: https://img.shields.io/badge/License-MPL_2.0-yellow.svg
+[license]: https://opensource.org/licenses/MPL-2.0
+[aikido]: https://www.aikido.dev/
+[api-docs]: https://apidocs.aikido.dev/
+[terraform]: https://developer.hashicorp.com/terraform/downloads
+[go]: https://golang.org/doc/install

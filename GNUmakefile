@@ -11,6 +11,7 @@ lint:
 
 generate:
 	cd tools; go generate ./...
+	./scripts/set-subcategories.sh
 
 fmt:
 	gofmt -s -w -e .
