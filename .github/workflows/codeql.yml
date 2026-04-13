@@ -15,7 +15,7 @@ permissions:
   contents: read
 
 jobs:
-  analyze:
+  analyze-go:
     name: Analyze Go
     runs-on: ubuntu-latest
     steps:
@@ -38,3 +38,19 @@ jobs:
         uses: github/codeql-action/analyze@c10b8064de6f491fea524254123dbe5e09572f13 # v4.35.1
         with:
           category: "/language:go"
+
+  analyze-actions:
+    name: Analyze Actions
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@c10b8064de6f491fea524254123dbe5e09572f13 # v4.35.1
+        with:
+          languages: actions
+
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@c10b8064de6f491fea524254123dbe5e09572f13 # v4.35.1
+        with:
+          category: "/language:actions"
