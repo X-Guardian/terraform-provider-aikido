@@ -67,7 +67,7 @@ func (c *AikidoClient) GetCodeRepo(ctx context.Context, repoID int) (*CodeRepoDe
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("unexpected status %d getting code repo: %s", resp.StatusCode, string(body))
+		return nil, fmt.Errorf("unexpected status %d getting code repo: %s", resp.StatusCode, errorBody(body))
 	}
 
 	var repo CodeRepoDetail
@@ -88,7 +88,7 @@ func (c *AikidoClient) ActivateCodeRepo(ctx context.Context, repoID int) error {
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
-		return fmt.Errorf("unexpected status %d activating code repo: %s", resp.StatusCode, string(body))
+		return fmt.Errorf("unexpected status %d activating code repo: %s", resp.StatusCode, errorBody(body))
 	}
 
 	return nil
@@ -104,7 +104,7 @@ func (c *AikidoClient) DeactivateCodeRepo(ctx context.Context, repoID int) error
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
-		return fmt.Errorf("unexpected status %d deactivating code repo: %s", resp.StatusCode, string(body))
+		return fmt.Errorf("unexpected status %d deactivating code repo: %s", resp.StatusCode, errorBody(body))
 	}
 
 	return nil
@@ -120,7 +120,7 @@ func (c *AikidoClient) UpdateCodeRepoSensitivity(ctx context.Context, repoID int
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
-		return fmt.Errorf("unexpected status %d updating sensitivity: %s", resp.StatusCode, string(body))
+		return fmt.Errorf("unexpected status %d updating sensitivity: %s", resp.StatusCode, errorBody(body))
 	}
 
 	return nil
@@ -136,7 +136,7 @@ func (c *AikidoClient) UpdateCodeRepoConnectivity(ctx context.Context, repoID in
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
-		return fmt.Errorf("unexpected status %d updating connectivity: %s", resp.StatusCode, string(body))
+		return fmt.Errorf("unexpected status %d updating connectivity: %s", resp.StatusCode, errorBody(body))
 	}
 
 	return nil
@@ -152,7 +152,7 @@ func (c *AikidoClient) UpdateCodeRepoDevDepScanning(ctx context.Context, repoID 
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
-		return fmt.Errorf("unexpected status %d updating dev dep scanning: %s", resp.StatusCode, string(body))
+		return fmt.Errorf("unexpected status %d updating dev dep scanning: %s", resp.StatusCode, errorBody(body))
 	}
 
 	return nil
@@ -168,7 +168,7 @@ func (c *AikidoClient) AddCodeRepoExcludePath(ctx context.Context, repoID int, p
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
-		return fmt.Errorf("unexpected status %d adding exclude path: %s", resp.StatusCode, string(body))
+		return fmt.Errorf("unexpected status %d adding exclude path: %s", resp.StatusCode, errorBody(body))
 	}
 
 	return nil
@@ -184,7 +184,7 @@ func (c *AikidoClient) RemoveCodeRepoExcludePath(ctx context.Context, repoID int
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
-		return fmt.Errorf("unexpected status %d removing exclude path: %s", resp.StatusCode, string(body))
+		return fmt.Errorf("unexpected status %d removing exclude path: %s", resp.StatusCode, errorBody(body))
 	}
 
 	return nil
@@ -244,7 +244,7 @@ func (c *AikidoClient) getCodeReposPage(ctx context.Context, params url.Values) 
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("unexpected status %d listing code repos: %s", resp.StatusCode, string(body))
+		return nil, fmt.Errorf("unexpected status %d listing code repos: %s", resp.StatusCode, errorBody(body))
 	}
 
 	var repos []CodeRepo

@@ -4,11 +4,13 @@ import (
 	"context"
 	"fmt"
 	"strconv"
+	"strings"
 
 	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/int64planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
@@ -90,10 +92,16 @@ func (r *WebhookResource) Schema(ctx context.Context, req resource.SchemaRequest
 			"health_status": schema.StringAttribute{
 				Computed:            true,
 				MarkdownDescription: "The health status of the webhook: `unknown`, `failing`, or `success`.",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"latest_http_status_code": schema.Int64Attribute{
 				Computed:            true,
 				MarkdownDescription: "The HTTP status code from the latest webhook delivery.",
+				PlanModifiers: []planmodifier.Int64{
+					int64planmodifier.UseStateForUnknown(),
+				},
 			},
 		},
 	}
@@ -152,8 +160,12 @@ func (r *WebhookResource) Read(ctx context.Context, req resource.ReadRequest, re
 
 	webhook, err := r.client.GetWebhook(ctx, data.ID.ValueString())
 	if err != nil {
-		resp.State.RemoveResource(ctx)
-		tflog.Warn(ctx, "webhook not found, removing from state", map[string]interface{}{"id": data.ID.ValueString()})
+		if strings.Contains(err.Error(), "not found") {
+			resp.State.RemoveResource(ctx)
+			tflog.Warn(ctx, "webhook not found, removing from state", map[string]interface{}{"id": data.ID.ValueString()})
+			return
+		}
+		resp.Diagnostics.AddError("Error Reading Webhook", fmt.Sprintf("Unable to read webhook %s: %s", data.ID.ValueString(), err))
 		return
 	}
 

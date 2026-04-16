@@ -38,7 +38,7 @@ func (c *AikidoClient) CreateWebhook(ctx context.Context, req CreateWebhookReque
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
-		return 0, fmt.Errorf("unexpected status %d creating webhook: %s", resp.StatusCode, string(body))
+		return 0, fmt.Errorf("unexpected status %d creating webhook: %s", resp.StatusCode, errorBody(body))
 	}
 
 	var createResp CreateWebhookResponse
@@ -75,7 +75,7 @@ func (c *AikidoClient) ListWebhooks(ctx context.Context) ([]Webhook, error) {
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("unexpected status %d listing webhooks: %s", resp.StatusCode, string(body))
+		return nil, fmt.Errorf("unexpected status %d listing webhooks: %s", resp.StatusCode, errorBody(body))
 	}
 
 	var webhooks []Webhook
@@ -96,7 +96,7 @@ func (c *AikidoClient) DeleteWebhook(ctx context.Context, webhookID int) error {
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
-		return fmt.Errorf("unexpected status %d deleting webhook: %s", resp.StatusCode, string(body))
+		return fmt.Errorf("unexpected status %d deleting webhook: %s", resp.StatusCode, errorBody(body))
 	}
 
 	return nil

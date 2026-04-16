@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"strconv"
+	"strings"
 
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
@@ -61,10 +62,16 @@ func (r *TeamResource) Schema(ctx context.Context, req resource.SchemaRequest, r
 			"external_source": schema.StringAttribute{
 				Computed:            true,
 				MarkdownDescription: "The external source of the team (e.g., github), or null if manually created.",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"external_source_id": schema.StringAttribute{
 				Computed:            true,
 				MarkdownDescription: "The external source identifier for the team.",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"active": schema.BoolAttribute{
 				Computed:            true,
@@ -131,8 +138,12 @@ func (r *TeamResource) Read(ctx context.Context, req resource.ReadRequest, resp 
 
 	team, err := r.client.GetTeam(ctx, teamID)
 	if err != nil {
-		resp.State.RemoveResource(ctx)
-		tflog.Warn(ctx, "team not found, removing from state", map[string]interface{}{"id": teamID})
+		if strings.Contains(err.Error(), "not found") {
+			resp.State.RemoveResource(ctx)
+			tflog.Warn(ctx, "team not found, removing from state", map[string]interface{}{"id": teamID})
+			return
+		}
+		resp.Diagnostics.AddError("Error Reading Team", fmt.Sprintf("Unable to read team %d: %s", teamID, err))
 		return
 	}
 

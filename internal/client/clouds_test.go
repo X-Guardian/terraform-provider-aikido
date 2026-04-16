@@ -3,6 +3,7 @@ package client
 import (
 	"context"
 	"net/http"
+	"strings"
 	"testing"
 )
 
@@ -33,6 +34,29 @@ func TestGetCloud_NotFound(t *testing.T) {
 	_, err := c.GetCloud(context.Background(), 999)
 	if err == nil {
 		t.Fatal("expected error for cloud not found")
+	}
+}
+
+func TestGetCloud_PermissionError(t *testing.T) {
+	server, c := newTestServer(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusForbidden)
+		if _, err := w.Write([]byte(`{"error":"You are missing the required scope for this request: \u0027clouds:read\u0027"}`)); err != nil {
+			t.Fatalf("failed to write response: %v", err)
+		}
+	})
+	defer server.Close()
+
+	_, err := c.GetCloud(context.Background(), 8206)
+	if err == nil {
+		t.Fatal("expected error for 403")
+	}
+	// Verify the error message is clean (no unicode escapes)
+	if !strings.Contains(err.Error(), "'clouds:read'") {
+		t.Errorf("expected clean error with 'clouds:read', got: %s", err.Error())
+	}
+	// Verify it's not a "not found" error (important for Read method distinction)
+	if strings.Contains(err.Error(), "not found") {
+		t.Error("403 error should not contain 'not found'")
 	}
 }
 

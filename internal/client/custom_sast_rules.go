@@ -40,7 +40,7 @@ func (c *AikidoClient) CreateCustomRule(ctx context.Context, req CustomRuleReque
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
-		return 0, fmt.Errorf("unexpected status %d creating custom rule: %s", resp.StatusCode, string(body))
+		return 0, fmt.Errorf("unexpected status %d creating custom rule: %s", resp.StatusCode, errorBody(body))
 	}
 
 	var createResp struct {
@@ -67,7 +67,7 @@ func (c *AikidoClient) GetCustomRule(ctx context.Context, ruleID int) (*CustomRu
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("unexpected status %d getting custom rule: %s", resp.StatusCode, string(body))
+		return nil, fmt.Errorf("unexpected status %d getting custom rule: %s", resp.StatusCode, errorBody(body))
 	}
 
 	var wrapper struct {
@@ -90,7 +90,7 @@ func (c *AikidoClient) ListCustomRules(ctx context.Context) ([]CustomRule, error
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("unexpected status %d listing custom rules: %s", resp.StatusCode, string(body))
+		return nil, fmt.Errorf("unexpected status %d listing custom rules: %s", resp.StatusCode, errorBody(body))
 	}
 
 	var wrapper struct {
@@ -113,7 +113,7 @@ func (c *AikidoClient) UpdateCustomRule(ctx context.Context, ruleID int, req Cus
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
-		return fmt.Errorf("unexpected status %d updating custom rule: %s", resp.StatusCode, string(body))
+		return fmt.Errorf("unexpected status %d updating custom rule: %s", resp.StatusCode, errorBody(body))
 	}
 
 	return nil
@@ -133,7 +133,7 @@ func (c *AikidoClient) DeleteCustomRule(ctx context.Context, ruleID int) error {
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
-		return fmt.Errorf("unexpected status %d deleting custom rule: %s", resp.StatusCode, string(body))
+		return fmt.Errorf("unexpected status %d deleting custom rule: %s", resp.StatusCode, errorBody(body))
 	}
 
 	return nil

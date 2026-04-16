@@ -176,7 +176,7 @@ func (c *AikidoClient) CreateKubernetesCloud(ctx context.Context, req CreateKube
 
 	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusCreated {
 		body, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("unexpected status %d creating kubernetes cloud: %s", resp.StatusCode, string(body))
+		return nil, fmt.Errorf("unexpected status %d creating kubernetes cloud: %s", resp.StatusCode, errorBody(body))
 	}
 
 	var k8sResp KubernetesCloudResponse
@@ -201,7 +201,7 @@ func (c *AikidoClient) DeleteCloud(ctx context.Context, cloudID int) error {
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
-		return fmt.Errorf("unexpected status %d deleting cloud: %s", resp.StatusCode, string(body))
+		return fmt.Errorf("unexpected status %d deleting cloud: %s", resp.StatusCode, errorBody(body))
 	}
 
 	return nil
@@ -217,7 +217,7 @@ func (c *AikidoClient) getCloudsPage(ctx context.Context, params url.Values) ([]
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("unexpected status %d listing clouds: %s", resp.StatusCode, string(body))
+		return nil, fmt.Errorf("unexpected status %d listing clouds: %s", resp.StatusCode, errorBody(body))
 	}
 
 	var clouds []Cloud

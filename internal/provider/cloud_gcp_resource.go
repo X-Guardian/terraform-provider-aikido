@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"strconv"
+	"strings"
 
 	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
@@ -90,6 +91,9 @@ func (r *CloudGCPResource) Schema(ctx context.Context, req resource.SchemaReques
 			"external_id": schema.StringAttribute{
 				Computed:            true,
 				MarkdownDescription: "The external identifier from GCP.",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 		},
 	}
@@ -162,8 +166,12 @@ func (r *CloudGCPResource) Read(ctx context.Context, req resource.ReadRequest, r
 
 	cloud, err := r.client.GetCloud(ctx, cloudID)
 	if err != nil {
-		resp.State.RemoveResource(ctx)
-		tflog.Warn(ctx, "cloud not found, removing from state", map[string]interface{}{"id": cloudID})
+		if strings.Contains(err.Error(), "not found") {
+			resp.State.RemoveResource(ctx)
+			tflog.Warn(ctx, "cloud not found, removing from state", map[string]interface{}{"id": cloudID})
+			return
+		}
+		resp.Diagnostics.AddError("Error Reading GCP Cloud", fmt.Sprintf("Unable to read cloud %d: %s", cloudID, err))
 		return
 	}
 

@@ -4,12 +4,14 @@ import (
 	"context"
 	"fmt"
 	"strconv"
+	"strings"
 
 	"github.com/hashicorp/terraform-plugin-framework-validators/int64validator"
 	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/boolplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
@@ -97,6 +99,9 @@ func (r *CustomRuleResource) Schema(ctx context.Context, req resource.SchemaRequ
 			"has_error": schema.BoolAttribute{
 				Computed:            true,
 				MarkdownDescription: "Whether this rule caused an error during a scan.",
+				PlanModifiers: []planmodifier.Bool{
+					boolplanmodifier.UseStateForUnknown(),
+				},
 			},
 		},
 	}
@@ -165,8 +170,12 @@ func (r *CustomRuleResource) Read(ctx context.Context, req resource.ReadRequest,
 
 	rule, err := r.client.GetCustomRule(ctx, ruleID)
 	if err != nil {
-		resp.State.RemoveResource(ctx)
-		tflog.Warn(ctx, "custom rule not found, removing from state", map[string]interface{}{"id": ruleID})
+		if strings.Contains(err.Error(), "not found") {
+			resp.State.RemoveResource(ctx)
+			tflog.Warn(ctx, "custom rule not found, removing from state", map[string]interface{}{"id": ruleID})
+			return
+		}
+		resp.Diagnostics.AddError("Error Reading Custom SAST Rule", fmt.Sprintf("Unable to read custom rule %d: %s", ruleID, err))
 		return
 	}
 

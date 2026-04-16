@@ -4,11 +4,13 @@ import (
 	"context"
 	"fmt"
 	"strconv"
+	"strings"
 
 	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/boolplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
@@ -82,22 +84,37 @@ func (r *ZenAppResource) Schema(ctx context.Context, req resource.SchemaRequest,
 				Computed:            true,
 				Sensitive:           true,
 				MarkdownDescription: "The Zen app token. Only available after initial creation.",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"token_hint": schema.StringAttribute{
 				Computed:            true,
 				MarkdownDescription: "A hint of the current active token.",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"has_token": schema.BoolAttribute{
 				Computed:            true,
 				MarkdownDescription: "Whether a token is set for this app.",
+				PlanModifiers: []planmodifier.Bool{
+					boolplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"blocking": schema.BoolAttribute{
 				Computed:            true,
 				MarkdownDescription: "Whether blocking mode is enabled.",
+				PlanModifiers: []planmodifier.Bool{
+					boolplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"code_repo_name": schema.StringAttribute{
 				Computed:            true,
 				MarkdownDescription: "The name of the linked code repository.",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 		},
 	}
@@ -180,8 +197,12 @@ func (r *ZenAppResource) Read(ctx context.Context, req resource.ReadRequest, res
 
 	app, err := r.client.GetZenApp(ctx, appID)
 	if err != nil {
-		resp.State.RemoveResource(ctx)
-		tflog.Warn(ctx, "zen app not found, removing from state", map[string]interface{}{"id": appID})
+		if strings.Contains(err.Error(), "not found") {
+			resp.State.RemoveResource(ctx)
+			tflog.Warn(ctx, "zen app not found, removing from state", map[string]interface{}{"id": appID})
+			return
+		}
+		resp.Diagnostics.AddError("Error Reading Zen App", fmt.Sprintf("Unable to read zen app %d: %s", appID, err))
 		return
 	}
 

@@ -78,7 +78,7 @@ func (c *AikidoClient) getUsersPage(ctx context.Context, params url.Values) ([]U
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("unexpected status %d listing users: %s", resp.StatusCode, string(body))
+		return nil, fmt.Errorf("unexpected status %d listing users: %s", resp.StatusCode, errorBody(body))
 	}
 
 	var users []User
