@@ -4,13 +4,16 @@ import (
 	"context"
 	"fmt"
 	"strconv"
+	"strings"
 
 	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/boolplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/setplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/types"
@@ -74,11 +77,17 @@ func (r *CodeRepoConfigResource) Schema(ctx context.Context, req resource.Schema
 				Optional:            true,
 				Computed:            true,
 				MarkdownDescription: "Whether scanning is active for this repository.",
+				PlanModifiers: []planmodifier.Bool{
+					boolplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"sensitivity": schema.StringAttribute{
 				Optional:            true,
 				Computed:            true,
 				MarkdownDescription: "The sensitivity level: `extreme`, `sensitive`, `normal`, `not_sensitive`, or `no_data`.",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 				Validators: []validator.String{
 					stringvalidator.OneOf("extreme", "sensitive", "normal", "not_sensitive", "no_data"),
 				},
@@ -87,6 +96,9 @@ func (r *CodeRepoConfigResource) Schema(ctx context.Context, req resource.Schema
 				Optional:            true,
 				Computed:            true,
 				MarkdownDescription: "The connectivity status: `connected`, `not_connected`, or `unknown`.",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 				Validators: []validator.String{
 					stringvalidator.OneOf("connected", "not_connected", "unknown"),
 				},
@@ -95,28 +107,46 @@ func (r *CodeRepoConfigResource) Schema(ctx context.Context, req resource.Schema
 				Optional:            true,
 				Computed:            true,
 				MarkdownDescription: "Whether development dependency scanning is enabled.",
+				PlanModifiers: []planmodifier.Bool{
+					boolplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"excluded_paths": schema.SetAttribute{
 				Optional:            true,
 				Computed:            true,
 				ElementType:         types.StringType,
 				MarkdownDescription: "Paths excluded from scanning.",
+				PlanModifiers: []planmodifier.Set{
+					setplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"name": schema.StringAttribute{
 				Computed:            true,
 				MarkdownDescription: "The name of the code repository.",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"provider_name": schema.StringAttribute{
 				Computed:            true,
 				MarkdownDescription: "The Git provider (e.g., github, gitlab, bitbucket).",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"branch": schema.StringAttribute{
 				Computed:            true,
 				MarkdownDescription: "The branch being scanned.",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"url": schema.StringAttribute{
 				Computed:            true,
 				MarkdownDescription: "The URL of the repository.",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 		},
 	}
@@ -192,8 +222,12 @@ func (r *CodeRepoConfigResource) Read(ctx context.Context, req resource.ReadRequ
 
 	repo, err := r.client.GetCodeRepo(ctx, repoID)
 	if err != nil {
-		resp.State.RemoveResource(ctx)
-		tflog.Warn(ctx, "code repo not found, removing from state", map[string]interface{}{"id": repoID})
+		if strings.Contains(err.Error(), "not found") {
+			resp.State.RemoveResource(ctx)
+			tflog.Warn(ctx, "code repo not found, removing from state", map[string]interface{}{"id": repoID})
+			return
+		}
+		resp.Diagnostics.AddError("Error Reading Code Repo", fmt.Sprintf("Unable to read code repo %d: %s", repoID, err))
 		return
 	}
 

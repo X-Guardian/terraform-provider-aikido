@@ -176,3 +176,16 @@ func (c *AikidoClient) DoRequest(ctx context.Context, method, path string, body 
 
 	return nil, fmt.Errorf("rate limited: exhausted retries")
 }
+
+// errorBody reads an HTTP response body and returns a clean error string.
+// If the body is a JSON object with an "error" key, that value is returned.
+// Otherwise the raw body is returned as-is.
+func errorBody(body []byte) string {
+	var parsed struct {
+		Error string `json:"error"`
+	}
+	if json.Unmarshal(body, &parsed) == nil && parsed.Error != "" {
+		return parsed.Error
+	}
+	return string(body)
+}

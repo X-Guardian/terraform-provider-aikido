@@ -85,7 +85,7 @@ func (c *AikidoClient) UpdateZenAppBlocking(ctx context.Context, appID int, req 
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
-		return fmt.Errorf("unexpected status %d updating blocking: %s", resp.StatusCode, string(body))
+		return fmt.Errorf("unexpected status %d updating blocking: %s", resp.StatusCode, errorBody(body))
 	}
 
 	return nil
@@ -101,7 +101,7 @@ func (c *AikidoClient) GetZenAppCountries(ctx context.Context, appID int) (*ZenA
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("unexpected status %d getting countries: %s", resp.StatusCode, string(body))
+		return nil, fmt.Errorf("unexpected status %d getting countries: %s", resp.StatusCode, errorBody(body))
 	}
 
 	var countries ZenAppCountries
@@ -122,7 +122,7 @@ func (c *AikidoClient) UpdateZenAppCountries(ctx context.Context, appID int, req
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
-		return fmt.Errorf("unexpected status %d updating countries: %s", resp.StatusCode, string(body))
+		return fmt.Errorf("unexpected status %d updating countries: %s", resp.StatusCode, errorBody(body))
 	}
 
 	return nil
@@ -138,7 +138,7 @@ func (c *AikidoClient) UpdateZenAppIPBlocklist(ctx context.Context, appID int, i
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
-		return fmt.Errorf("unexpected status %d updating IP blocklist: %s", resp.StatusCode, string(body))
+		return fmt.Errorf("unexpected status %d updating IP blocklist: %s", resp.StatusCode, errorBody(body))
 	}
 
 	return nil
@@ -154,7 +154,7 @@ func (c *AikidoClient) GetZenAppBotLists(ctx context.Context, appID int) ([]ZenA
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("unexpected status %d getting bot lists: %s", resp.StatusCode, string(body))
+		return nil, fmt.Errorf("unexpected status %d getting bot lists: %s", resp.StatusCode, errorBody(body))
 	}
 
 	var items []ZenAppBotListItem
@@ -175,7 +175,7 @@ func (c *AikidoClient) UpdateZenAppBotLists(ctx context.Context, appID int, item
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
-		return fmt.Errorf("unexpected status %d updating bot lists: %s", resp.StatusCode, string(body))
+		return fmt.Errorf("unexpected status %d updating bot lists: %s", resp.StatusCode, errorBody(body))
 	}
 
 	return nil
@@ -191,7 +191,7 @@ func (c *AikidoClient) GetZenAppIPLists(ctx context.Context, appID int) (*ZenApp
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("unexpected status %d getting IP lists: %s", resp.StatusCode, string(body))
+		return nil, fmt.Errorf("unexpected status %d getting IP lists: %s", resp.StatusCode, errorBody(body))
 	}
 
 	var lists ZenAppIPLists
@@ -212,7 +212,7 @@ func (c *AikidoClient) UpdateZenAppIPLists(ctx context.Context, appID int, req Z
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
-		return fmt.Errorf("unexpected status %d updating IP lists: %s", resp.StatusCode, string(body))
+		return fmt.Errorf("unexpected status %d updating IP lists: %s", resp.StatusCode, errorBody(body))
 	}
 
 	return nil

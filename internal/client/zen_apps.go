@@ -63,7 +63,7 @@ func (c *AikidoClient) CreateZenApp(ctx context.Context, req CreateZenAppRequest
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("unexpected status %d creating zen app: %s", resp.StatusCode, string(body))
+		return nil, fmt.Errorf("unexpected status %d creating zen app: %s", resp.StatusCode, errorBody(body))
 	}
 
 	var createResp CreateZenAppResponse
@@ -88,7 +88,7 @@ func (c *AikidoClient) GetZenApp(ctx context.Context, appID int) (*ZenAppDetail,
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("unexpected status %d getting zen app: %s", resp.StatusCode, string(body))
+		return nil, fmt.Errorf("unexpected status %d getting zen app: %s", resp.StatusCode, errorBody(body))
 	}
 
 	var app ZenAppDetail
@@ -109,7 +109,7 @@ func (c *AikidoClient) ListZenApps(ctx context.Context) ([]ZenApp, error) {
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("unexpected status %d listing zen apps: %s", resp.StatusCode, string(body))
+		return nil, fmt.Errorf("unexpected status %d listing zen apps: %s", resp.StatusCode, errorBody(body))
 	}
 
 	var apps []ZenApp
@@ -130,7 +130,7 @@ func (c *AikidoClient) UpdateZenApp(ctx context.Context, appID int, req UpdateZe
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
-		return fmt.Errorf("unexpected status %d updating zen app: %s", resp.StatusCode, string(body))
+		return fmt.Errorf("unexpected status %d updating zen app: %s", resp.StatusCode, errorBody(body))
 	}
 
 	return nil
@@ -150,7 +150,7 @@ func (c *AikidoClient) DeleteZenApp(ctx context.Context, appID int) error {
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
-		return fmt.Errorf("unexpected status %d deleting zen app: %s", resp.StatusCode, string(body))
+		return fmt.Errorf("unexpected status %d deleting zen app: %s", resp.StatusCode, errorBody(body))
 	}
 
 	return nil

@@ -39,7 +39,7 @@ func (c *AikidoClient) CreateDomain(ctx context.Context, req CreateDomainRequest
 
 	if resp.StatusCode != http.StatusCreated {
 		body, _ := io.ReadAll(resp.Body)
-		return 0, fmt.Errorf("unexpected status %d creating domain: %s", resp.StatusCode, string(body))
+		return 0, fmt.Errorf("unexpected status %d creating domain: %s", resp.StatusCode, errorBody(body))
 	}
 
 	var createResp CreateDomainResponse
@@ -128,7 +128,7 @@ func (c *AikidoClient) DeleteDomain(ctx context.Context, domainID int) error {
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
-		return fmt.Errorf("unexpected status %d deleting domain: %s", resp.StatusCode, string(body))
+		return fmt.Errorf("unexpected status %d deleting domain: %s", resp.StatusCode, errorBody(body))
 	}
 
 	return nil
@@ -144,7 +144,7 @@ func (c *AikidoClient) getDomainsPage(ctx context.Context, params url.Values) ([
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("unexpected status %d listing domains: %s", resp.StatusCode, string(body))
+		return nil, fmt.Errorf("unexpected status %d listing domains: %s", resp.StatusCode, errorBody(body))
 	}
 
 	var domains []Domain

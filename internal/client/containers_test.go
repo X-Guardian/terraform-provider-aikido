@@ -30,6 +30,46 @@ func TestGetContainer(t *testing.T) {
 	}
 }
 
+func TestGetContainer_WithLinkedCodeRepoID(t *testing.T) {
+	server, c := newTestServer(func(w http.ResponseWriter, r *http.Request) {
+		// Simulate API returning linked_code_repo_id as a number (not a string)
+		w.Header().Set("Content-Type", "application/json")
+		if _, err := w.Write([]byte(`{"id":42,"name":"my-app","provider":"aws","tag":"latest","distro":"alpine","linked_code_repo_id":12345}`)); err != nil {
+			t.Fatalf("failed to write response: %v", err)
+		}
+	})
+	defer server.Close()
+
+	container, err := c.GetContainer(context.Background(), 42)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if container.LinkedCodeRepoID == nil {
+		t.Fatal("expected linked_code_repo_id to be set")
+	}
+	if *container.LinkedCodeRepoID != 12345 {
+		t.Errorf("expected linked_code_repo_id 12345, got %d", *container.LinkedCodeRepoID)
+	}
+}
+
+func TestGetContainer_NullLinkedCodeRepoID(t *testing.T) {
+	server, c := newTestServer(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		if _, err := w.Write([]byte(`{"id":42,"name":"my-app","provider":"aws","tag":"latest","distro":"alpine","linked_code_repo_id":null}`)); err != nil {
+			t.Fatalf("failed to write response: %v", err)
+		}
+	})
+	defer server.Close()
+
+	container, err := c.GetContainer(context.Background(), 42)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if container.LinkedCodeRepoID != nil {
+		t.Errorf("expected linked_code_repo_id to be nil, got %d", *container.LinkedCodeRepoID)
+	}
+}
+
 func TestGetContainer_NotFound(t *testing.T) {
 	server, c := newTestServer(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusNotFound)

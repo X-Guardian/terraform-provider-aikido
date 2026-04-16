@@ -51,7 +51,7 @@ func (c *AikidoClient) CreateTeam(ctx context.Context, name string) (*Team, erro
 
 	if resp.StatusCode != http.StatusCreated {
 		body, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("unexpected status %d creating team: %s", resp.StatusCode, string(body))
+		return nil, fmt.Errorf("unexpected status %d creating team: %s", resp.StatusCode, errorBody(body))
 	}
 
 	var createResp CreateTeamResponse
@@ -122,7 +122,7 @@ func (c *AikidoClient) getTeamsPage(ctx context.Context, page int) ([]Team, erro
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("unexpected status %d listing teams: %s", resp.StatusCode, string(body))
+		return nil, fmt.Errorf("unexpected status %d listing teams: %s", resp.StatusCode, errorBody(body))
 	}
 
 	var teams []Team
@@ -143,7 +143,7 @@ func (c *AikidoClient) UpdateTeam(ctx context.Context, teamID int, req UpdateTea
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
-		return fmt.Errorf("unexpected status %d updating team: %s", resp.StatusCode, string(body))
+		return fmt.Errorf("unexpected status %d updating team: %s", resp.StatusCode, errorBody(body))
 	}
 
 	return nil
@@ -173,7 +173,7 @@ func (c *AikidoClient) LinkResourceToTeam(ctx context.Context, teamID int, resou
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
-		return fmt.Errorf("unexpected status %d linking resource to team: %s", resp.StatusCode, string(body))
+		return fmt.Errorf("unexpected status %d linking resource to team: %s", resp.StatusCode, errorBody(body))
 	}
 
 	return nil
@@ -194,7 +194,7 @@ func (c *AikidoClient) UnlinkResourceFromTeam(ctx context.Context, teamID int, r
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
-		return fmt.Errorf("unexpected status %d unlinking resource from team: %s", resp.StatusCode, string(body))
+		return fmt.Errorf("unexpected status %d unlinking resource from team: %s", resp.StatusCode, errorBody(body))
 	}
 
 	return nil
@@ -226,7 +226,7 @@ func (c *AikidoClient) AddUserToTeam(ctx context.Context, teamID, userID int) er
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
-		return fmt.Errorf("unexpected status %d adding user to team: %s", resp.StatusCode, string(body))
+		return fmt.Errorf("unexpected status %d adding user to team: %s", resp.StatusCode, errorBody(body))
 	}
 
 	return nil
@@ -242,7 +242,7 @@ func (c *AikidoClient) RemoveUserFromTeam(ctx context.Context, teamID, userID in
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
-		return fmt.Errorf("unexpected status %d removing user from team: %s", resp.StatusCode, string(body))
+		return fmt.Errorf("unexpected status %d removing user from team: %s", resp.StatusCode, errorBody(body))
 	}
 
 	return nil
@@ -258,12 +258,12 @@ func (c *AikidoClient) DeleteTeam(ctx context.Context, teamID int) error {
 
 	if resp.StatusCode == http.StatusBadRequest {
 		body, _ := io.ReadAll(resp.Body)
-		return fmt.Errorf("cannot delete team (it may be an imported team): %s", string(body))
+		return fmt.Errorf("cannot delete team (it may be an imported team): %s", errorBody(body))
 	}
 
 	if resp.StatusCode != http.StatusNoContent {
 		body, _ := io.ReadAll(resp.Body)
-		return fmt.Errorf("unexpected status %d deleting team: %s", resp.StatusCode, string(body))
+		return fmt.Errorf("unexpected status %d deleting team: %s", resp.StatusCode, errorBody(body))
 	}
 
 	return nil

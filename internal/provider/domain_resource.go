@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"strconv"
+	"strings"
 
 	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/path"
@@ -145,8 +146,12 @@ func (r *DomainResource) Read(ctx context.Context, req resource.ReadRequest, res
 
 	domain, err := r.client.GetDomain(ctx, domainID)
 	if err != nil {
-		resp.State.RemoveResource(ctx)
-		tflog.Warn(ctx, "domain not found, removing from state", map[string]interface{}{"id": domainID})
+		if strings.Contains(err.Error(), "not found") {
+			resp.State.RemoveResource(ctx)
+			tflog.Warn(ctx, "domain not found, removing from state", map[string]interface{}{"id": domainID})
+			return
+		}
+		resp.Diagnostics.AddError("Error Reading Domain", fmt.Sprintf("Unable to read domain %d: %s", domainID, err))
 		return
 	}
 

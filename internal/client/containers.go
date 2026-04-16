@@ -23,7 +23,7 @@ type Container struct {
 	DistroVersion    string  `json:"distro_version"`
 	LastScannedAt    int64   `json:"last_scanned_at"`
 	LastScannedTag   string  `json:"last_scanned_tag"`
-	LinkedCodeRepoID *string `json:"linked_code_repo_id"`
+	LinkedCodeRepoID *int    `json:"linked_code_repo_id"`
 	LastPushedAt     int64   `json:"last_pushed_at"`
 	CreatedAt        int64   `json:"created_at"`
 }
@@ -54,7 +54,7 @@ func (c *AikidoClient) GetContainer(ctx context.Context, containerID int) (*Cont
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("unexpected status %d getting container: %s", resp.StatusCode, string(body))
+		return nil, fmt.Errorf("unexpected status %d getting container: %s", resp.StatusCode, errorBody(body))
 	}
 
 	var container ContainerDetail
@@ -122,7 +122,7 @@ func (c *AikidoClient) ActivateContainer(ctx context.Context, containerID int) e
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
-		return fmt.Errorf("unexpected status %d activating container: %s", resp.StatusCode, string(body))
+		return fmt.Errorf("unexpected status %d activating container: %s", resp.StatusCode, errorBody(body))
 	}
 
 	return nil
@@ -138,7 +138,7 @@ func (c *AikidoClient) DeactivateContainer(ctx context.Context, containerID int)
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
-		return fmt.Errorf("unexpected status %d deactivating container: %s", resp.StatusCode, string(body))
+		return fmt.Errorf("unexpected status %d deactivating container: %s", resp.StatusCode, errorBody(body))
 	}
 
 	return nil
@@ -154,7 +154,7 @@ func (c *AikidoClient) UpdateContainerSensitivity(ctx context.Context, container
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
-		return fmt.Errorf("unexpected status %d updating container sensitivity: %s", resp.StatusCode, string(body))
+		return fmt.Errorf("unexpected status %d updating container sensitivity: %s", resp.StatusCode, errorBody(body))
 	}
 
 	return nil
@@ -170,7 +170,7 @@ func (c *AikidoClient) UpdateContainerConnectivity(ctx context.Context, containe
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
-		return fmt.Errorf("unexpected status %d updating container connectivity: %s", resp.StatusCode, string(body))
+		return fmt.Errorf("unexpected status %d updating container connectivity: %s", resp.StatusCode, errorBody(body))
 	}
 
 	return nil
@@ -211,7 +211,7 @@ func (c *AikidoClient) getContainersPage(ctx context.Context, params url.Values)
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("unexpected status %d listing containers: %s", resp.StatusCode, string(body))
+		return nil, fmt.Errorf("unexpected status %d listing containers: %s", resp.StatusCode, errorBody(body))
 	}
 
 	var containers []Container

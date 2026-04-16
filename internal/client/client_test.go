@@ -60,6 +60,32 @@ func TestAuthenticate_BadCredentials(t *testing.T) {
 	}
 }
 
+func TestErrorBody_JSONError(t *testing.T) {
+	body := []byte(`{"error":"You are missing the required scope for this request: \u0027clouds:read\u0027"}`)
+	got := errorBody(body)
+	expected := "You are missing the required scope for this request: 'clouds:read'"
+	if got != expected {
+		t.Errorf("expected %q, got %q", expected, got)
+	}
+}
+
+func TestErrorBody_PlainText(t *testing.T) {
+	body := []byte("Internal Server Error")
+	got := errorBody(body)
+	if got != "Internal Server Error" {
+		t.Errorf("expected 'Internal Server Error', got %q", got)
+	}
+}
+
+func TestErrorBody_JSONWithoutErrorKey(t *testing.T) {
+	body := []byte(`{"message":"something went wrong"}`)
+	got := errorBody(body)
+	// Falls back to raw JSON since there's no "error" key
+	if got != `{"message":"something went wrong"}` {
+		t.Errorf("expected raw JSON, got %q", got)
+	}
+}
+
 func TestDoRequest_SetsAuthHeader(t *testing.T) {
 	callCount := 0
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

@@ -84,6 +84,9 @@ func (r *CloudAWSResource) Schema(ctx context.Context, req resource.SchemaReques
 			"external_id": schema.StringAttribute{
 				Computed:            true,
 				MarkdownDescription: "The AWS account ID.",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 		},
 	}
@@ -155,8 +158,12 @@ func (r *CloudAWSResource) Read(ctx context.Context, req resource.ReadRequest, r
 
 	cloud, err := r.client.GetCloud(ctx, cloudID)
 	if err != nil {
-		resp.State.RemoveResource(ctx)
-		tflog.Warn(ctx, "cloud not found, removing from state", map[string]interface{}{"id": cloudID})
+		if strings.Contains(err.Error(), "not found") {
+			resp.State.RemoveResource(ctx)
+			tflog.Warn(ctx, "cloud not found, removing from state", map[string]interface{}{"id": cloudID})
+			return
+		}
+		resp.Diagnostics.AddError("Error Reading AWS Cloud", fmt.Sprintf("Unable to read cloud %d: %s", cloudID, err))
 		return
 	}
 
