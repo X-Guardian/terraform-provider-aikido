@@ -27,16 +27,42 @@ type ListUsersOptions struct {
 	IncludeInactive bool
 }
 
-// ListUsers returns all users by paginating through every page.
-func (c *AikidoClient) ListUsers(ctx context.Context, opts *ListUsersOptions) ([]User, error) {
-	var allUsers []User
-	page := 0
-	perPage := 20
+const usersPerPage = 100
 
+// ListUsers returns all users for the given filters, served from a short-lived
+// cache when possible so multiple resources sharing the same filters perform
+// one paginated fetch.
+func (c *AikidoClient) ListUsers(ctx context.Context, opts *ListUsersOptions) ([]User, error) {
+	entry, err := c.usersCache.getOrFetch(ctx, usersCacheKey(opts), func() ([]User, error) {
+		return c.listUsersUncached(ctx, opts)
+	})
+	if err != nil {
+		return nil, err
+	}
+	return entry.users, nil
+}
+
+// listUsersUncached performs the actual paginated fetch, bypassing the cache.
+func (c *AikidoClient) listUsersUncached(ctx context.Context, opts *ListUsersOptions) ([]User, error) {
+	var allUsers []User
+	err := c.iterateUsersPages(ctx, opts, func(users []User) (bool, error) {
+		allUsers = append(allUsers, users...)
+		return false, nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	return allUsers, nil
+}
+
+// iterateUsersPages walks pages sequentially, invoking fn on each page's results.
+// If fn returns stop=true or an error, iteration ends.
+func (c *AikidoClient) iterateUsersPages(ctx context.Context, opts *ListUsersOptions, fn func([]User) (bool, error)) error {
+	page := 0
 	for {
 		params := url.Values{}
 		params.Set("page", strconv.Itoa(page))
-		params.Set("per_page", strconv.Itoa(perPage))
+		params.Set("per_page", strconv.Itoa(usersPerPage))
 
 		if opts != nil {
 			if opts.TeamID != nil {
@@ -49,23 +75,27 @@ func (c *AikidoClient) ListUsers(ctx context.Context, opts *ListUsersOptions) ([
 
 		users, err := c.getUsersPage(ctx, params)
 		if err != nil {
-			return nil, err
+			return err
 		}
 
 		if len(users) == 0 {
-			break
+			return nil
 		}
 
-		allUsers = append(allUsers, users...)
+		stop, err := fn(users)
+		if err != nil {
+			return err
+		}
+		if stop {
+			return nil
+		}
 
-		if len(users) < perPage {
-			break
+		if len(users) < usersPerPage {
+			return nil
 		}
 
 		page++
 	}
-
-	return allUsers, nil
 }
 
 // getUsersPage fetches a single page of users.
@@ -89,18 +119,17 @@ func (c *AikidoClient) getUsersPage(ctx context.Context, params url.Values) ([]U
 	return users, nil
 }
 
-// IsUserInTeam checks if a user is a member of a team by listing users filtered by team.
+// IsUserInTeam checks if a user is a member of a team. The team's user list is
+// cached on first fetch so N membership checks against the same team cost one
+// paginated API call rather than N.
 func (c *AikidoClient) IsUserInTeam(ctx context.Context, teamID, userID int) (bool, error) {
-	users, err := c.ListUsers(ctx, &ListUsersOptions{TeamID: &teamID})
+	opts := &ListUsersOptions{TeamID: &teamID}
+	entry, err := c.usersCache.getOrFetch(ctx, usersCacheKey(opts), func() ([]User, error) {
+		return c.listUsersUncached(ctx, opts)
+	})
 	if err != nil {
 		return false, fmt.Errorf("listing users for team: %w", err)
 	}
-
-	for _, u := range users {
-		if u.ID == userID {
-			return true, nil
-		}
-	}
-
-	return false, nil
+	_, found := entry.userIDs[userID]
+	return found, nil
 }

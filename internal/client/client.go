@@ -28,6 +28,8 @@ type AikidoClient struct {
 	accessToken string
 	tokenExpiry time.Time
 	limiter     *rate.Limiter
+	usersCache  *usersCache
+	teamsCache  *teamsCache
 }
 
 type tokenResponse struct {
@@ -46,6 +48,8 @@ func NewAikidoClient(baseURL, clientID, clientSecret string) *AikidoClient {
 		ClientSecret: clientSecret,
 		HTTPClient:   &http.Client{Timeout: 30 * time.Second},
 		limiter:      rate.NewLimiter(rate.Every(time.Minute/18), 1),
+		usersCache:   newUsersCache(5 * time.Minute),
+		teamsCache:   newTeamsCache(5 * time.Minute),
 	}
 }
 
