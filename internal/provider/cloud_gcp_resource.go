@@ -145,7 +145,7 @@ func (r *CloudGCPResource) Create(ctx context.Context, req resource.CreateReques
 
 	data.ExternalID = types.StringValue(cloud.ExternalID)
 
-	tflog.Trace(ctx, "created GCP cloud", map[string]interface{}{"id": cloudID})
+	tflog.Debug(ctx, "created GCP cloud", map[string]interface{}{"id": cloudID})
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
@@ -205,5 +205,5 @@ func (r *CloudGCPResource) Delete(ctx context.Context, req resource.DeleteReques
 		return
 	}
 
-	tflog.Trace(ctx, "deleted cloud", map[string]interface{}{"id": cloudID})
+	tflog.Debug(ctx, "deleted cloud", map[string]interface{}{"id": cloudID})
 }

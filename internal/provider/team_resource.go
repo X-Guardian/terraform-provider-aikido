@@ -117,7 +117,7 @@ func (r *TeamResource) Create(ctx context.Context, req resource.CreateRequest, r
 
 	mapTeamToModel(team, &data)
 
-	tflog.Trace(ctx, "created team", map[string]interface{}{"id": team.ID, "name": team.Name})
+	tflog.Debug(ctx, "created team", map[string]interface{}{"id": team.ID, "name": team.Name})
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
@@ -183,7 +183,7 @@ func (r *TeamResource) Update(ctx context.Context, req resource.UpdateRequest, r
 
 	mapTeamToModel(team, &data)
 
-	tflog.Trace(ctx, "updated team", map[string]interface{}{"id": teamID})
+	tflog.Debug(ctx, "updated team", map[string]interface{}{"id": teamID})
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
@@ -210,7 +210,7 @@ func (r *TeamResource) Delete(ctx context.Context, req resource.DeleteRequest, r
 		return
 	}
 
-	tflog.Trace(ctx, "deleted team", map[string]interface{}{"id": teamID})
+	tflog.Debug(ctx, "deleted team", map[string]interface{}{"id": teamID})
 }
 
 func (r *TeamResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
