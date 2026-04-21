@@ -201,7 +201,7 @@ func (r *CodeRepoConfigResource) Create(ctx context.Context, req resource.Create
 		return
 	}
 
-	tflog.Trace(ctx, "created code repo config", map[string]interface{}{"id": repoID})
+	tflog.Debug(ctx, "created code repo config", map[string]interface{}{"id": repoID})
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
@@ -320,7 +320,7 @@ func (r *CodeRepoConfigResource) Update(ctx context.Context, req resource.Update
 		return
 	}
 
-	tflog.Trace(ctx, "updated code repo config", map[string]interface{}{"id": repoID})
+	tflog.Debug(ctx, "updated code repo config", map[string]interface{}{"id": repoID})
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }
@@ -344,7 +344,7 @@ func (r *CodeRepoConfigResource) Delete(ctx context.Context, req resource.Delete
 		return
 	}
 
-	tflog.Trace(ctx, "deactivated code repo (delete)", map[string]interface{}{"id": repoID})
+	tflog.Debug(ctx, "deactivated code repo (delete)", map[string]interface{}{"id": repoID})
 }
 
 func (r *CodeRepoConfigResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {

@@ -108,7 +108,7 @@ func (r *ZenAppBlockingResource) Create(ctx context.Context, req resource.Create
 	}
 
 	data.ID = data.AppID
-	tflog.Trace(ctx, "set zen app blocking", map[string]interface{}{"app_id": appID, "block": data.Block.ValueBool()})
+	tflog.Debug(ctx, "set zen app blocking", map[string]interface{}{"app_id": appID, "block": data.Block.ValueBool()})
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
 
@@ -146,7 +146,7 @@ func (r *ZenAppBlockingResource) Update(ctx context.Context, req resource.Update
 	}
 
 	data.ID = data.AppID
-	tflog.Trace(ctx, "updated zen app blocking", map[string]interface{}{"app_id": appID})
+	tflog.Debug(ctx, "updated zen app blocking", map[string]interface{}{"app_id": appID})
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
 
@@ -169,7 +169,7 @@ func (r *ZenAppBlockingResource) Delete(ctx context.Context, req resource.Delete
 		return
 	}
 
-	tflog.Trace(ctx, "disabled zen app blocking (delete)", map[string]interface{}{"app_id": appID})
+	tflog.Debug(ctx, "disabled zen app blocking (delete)", map[string]interface{}{"app_id": appID})
 }
 
 func (r *ZenAppBlockingResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {

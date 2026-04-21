@@ -193,7 +193,7 @@ func (r *CloudKubernetesResource) Create(ctx context.Context, req resource.Creat
 
 	data.ExternalID = types.StringValue(cloud.ExternalID)
 
-	tflog.Trace(ctx, "created Kubernetes cloud", map[string]interface{}{"id": k8sResp.ID})
+	tflog.Debug(ctx, "created Kubernetes cloud", map[string]interface{}{"id": k8sResp.ID})
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
@@ -253,5 +253,5 @@ func (r *CloudKubernetesResource) Delete(ctx context.Context, req resource.Delet
 		return
 	}
 
-	tflog.Trace(ctx, "deleted cloud", map[string]interface{}{"id": cloudID})
+	tflog.Debug(ctx, "deleted cloud", map[string]interface{}{"id": cloudID})
 }

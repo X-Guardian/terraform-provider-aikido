@@ -176,7 +176,7 @@ func (r *ZenAppResource) Create(ctx context.Context, req resource.CreateRequest,
 
 	r.mapAppToModel(app, &data)
 
-	tflog.Trace(ctx, "created zen app", map[string]interface{}{"id": createResp.AppID})
+	tflog.Debug(ctx, "created zen app", map[string]interface{}{"id": createResp.AppID})
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
@@ -242,7 +242,7 @@ func (r *ZenAppResource) Update(ctx context.Context, req resource.UpdateRequest,
 
 	r.mapAppToModel(app, &data)
 
-	tflog.Trace(ctx, "updated zen app", map[string]interface{}{"id": appID})
+	tflog.Debug(ctx, "updated zen app", map[string]interface{}{"id": appID})
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
@@ -266,7 +266,7 @@ func (r *ZenAppResource) Delete(ctx context.Context, req resource.DeleteRequest,
 		return
 	}
 
-	tflog.Trace(ctx, "deleted zen app", map[string]interface{}{"id": appID})
+	tflog.Debug(ctx, "deleted zen app", map[string]interface{}{"id": appID})
 }
 
 func (r *ZenAppResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {

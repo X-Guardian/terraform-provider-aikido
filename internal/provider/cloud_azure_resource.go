@@ -163,7 +163,7 @@ func (r *CloudAzureResource) Create(ctx context.Context, req resource.CreateRequ
 
 	data.ExternalID = types.StringValue(cloud.ExternalID)
 
-	tflog.Trace(ctx, "created Azure cloud", map[string]interface{}{"id": cloudID})
+	tflog.Debug(ctx, "created Azure cloud", map[string]interface{}{"id": cloudID})
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
@@ -223,5 +223,5 @@ func (r *CloudAzureResource) Delete(ctx context.Context, req resource.DeleteRequ
 		return
 	}
 
-	tflog.Trace(ctx, "deleted cloud", map[string]interface{}{"id": cloudID})
+	tflog.Debug(ctx, "deleted cloud", map[string]interface{}{"id": cloudID})
 }

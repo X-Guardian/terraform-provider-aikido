@@ -112,7 +112,7 @@ func (r *ZenAppCountriesResource) Create(ctx context.Context, req resource.Creat
 	}
 
 	data.ID = data.AppID
-	tflog.Trace(ctx, "set zen app countries", map[string]interface{}{"app_id": appID})
+	tflog.Debug(ctx, "set zen app countries", map[string]interface{}{"app_id": appID})
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
 
@@ -169,7 +169,7 @@ func (r *ZenAppCountriesResource) Update(ctx context.Context, req resource.Updat
 	}
 
 	data.ID = data.AppID
-	tflog.Trace(ctx, "updated zen app countries", map[string]interface{}{"app_id": appID})
+	tflog.Debug(ctx, "updated zen app countries", map[string]interface{}{"app_id": appID})
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
 
@@ -195,7 +195,7 @@ func (r *ZenAppCountriesResource) Delete(ctx context.Context, req resource.Delet
 		return
 	}
 
-	tflog.Trace(ctx, "cleared zen app countries (delete)", map[string]interface{}{"app_id": appID})
+	tflog.Debug(ctx, "cleared zen app countries (delete)", map[string]interface{}{"app_id": appID})
 }
 
 func (r *ZenAppCountriesResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
