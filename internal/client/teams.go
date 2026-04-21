@@ -59,34 +59,39 @@ func (c *AikidoClient) CreateTeam(ctx context.Context, name string) (*Team, erro
 		return nil, fmt.Errorf("decoding create team response: %w", err)
 	}
 
+	c.teamsCache.invalidate(ctx)
 	return c.GetTeam(ctx, createResp.ID)
 }
 
-// GetTeam retrieves a single team by ID by paginating through the list endpoint.
+// GetTeam retrieves a single team by ID. The full team list is cached on first
+// call so N concurrent or sequential team lookups share one paginated fetch.
 func (c *AikidoClient) GetTeam(ctx context.Context, teamID int) (*Team, error) {
-	page := 0
-	for {
-		teams, err := c.getTeamsPage(ctx, page)
-		if err != nil {
-			return nil, err
-		}
-
-		if len(teams) == 0 {
-			return nil, fmt.Errorf("team with ID %d not found", teamID)
-		}
-
-		for i := range teams {
-			if teams[i].ID == teamID {
-				return &teams[i], nil
-			}
-		}
-
-		page++
+	entry, err := c.teamsCache.getOrFetch(ctx, func() ([]Team, error) {
+		return c.listTeamsUncached(ctx)
+	})
+	if err != nil {
+		return nil, err
 	}
+	if team, ok := entry.teamsByID[teamID]; ok {
+		return team, nil
+	}
+	return nil, fmt.Errorf("team with ID %d not found", teamID)
 }
 
-// ListTeams returns all teams by paginating through every page.
+// ListTeams returns all teams. Served from cache when available.
 func (c *AikidoClient) ListTeams(ctx context.Context) ([]Team, error) {
+	entry, err := c.teamsCache.getOrFetch(ctx, func() ([]Team, error) {
+		return c.listTeamsUncached(ctx)
+	})
+	if err != nil {
+		return nil, err
+	}
+	return entry.teams, nil
+}
+
+// listTeamsUncached performs the actual paginated fetch, bypassing the cache.
+// The API caps per_page at 20 so pagination cost scales linearly with team count.
+func (c *AikidoClient) listTeamsUncached(ctx context.Context) ([]Team, error) {
 	var allTeams []Team
 	page := 0
 
@@ -146,6 +151,7 @@ func (c *AikidoClient) UpdateTeam(ctx context.Context, teamID int, req UpdateTea
 		return fmt.Errorf("unexpected status %d updating team: %s", resp.StatusCode, errorBody(body))
 	}
 
+	c.teamsCache.invalidate(ctx)
 	return nil
 }
 
@@ -176,6 +182,7 @@ func (c *AikidoClient) LinkResourceToTeam(ctx context.Context, teamID int, resou
 		return fmt.Errorf("unexpected status %d linking resource to team: %s", resp.StatusCode, errorBody(body))
 	}
 
+	c.teamsCache.invalidate(ctx)
 	return nil
 }
 
@@ -197,6 +204,7 @@ func (c *AikidoClient) UnlinkResourceFromTeam(ctx context.Context, teamID int, r
 		return fmt.Errorf("unexpected status %d unlinking resource from team: %s", resp.StatusCode, errorBody(body))
 	}
 
+	c.teamsCache.invalidate(ctx)
 	return nil
 }
 
@@ -229,6 +237,7 @@ func (c *AikidoClient) AddUserToTeam(ctx context.Context, teamID, userID int) er
 		return fmt.Errorf("unexpected status %d adding user to team: %s", resp.StatusCode, errorBody(body))
 	}
 
+	c.usersCache.invalidateTeam(ctx, teamID)
 	return nil
 }
 
@@ -245,6 +254,7 @@ func (c *AikidoClient) RemoveUserFromTeam(ctx context.Context, teamID, userID in
 		return fmt.Errorf("unexpected status %d removing user from team: %s", resp.StatusCode, errorBody(body))
 	}
 
+	c.usersCache.invalidateTeam(ctx, teamID)
 	return nil
 }
 
@@ -266,5 +276,6 @@ func (c *AikidoClient) DeleteTeam(ctx context.Context, teamID int) error {
 		return fmt.Errorf("unexpected status %d deleting team: %s", resp.StatusCode, errorBody(body))
 	}
 
+	c.teamsCache.invalidate(ctx)
 	return nil
 }
