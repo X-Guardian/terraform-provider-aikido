@@ -111,7 +111,11 @@ func (c *usersCache) getOrFetch(ctx context.Context, key string, loader func() (
 	if shared {
 		tflog.Debug(ctx, "users cache fetch coalesced via singleflight", map[string]interface{}{"key": key})
 	}
-	return v.(*usersCacheEntry), nil
+	entry, ok := v.(*usersCacheEntry)
+	if !ok {
+		return nil, fmt.Errorf("users cache: unexpected singleflight value type %T", v)
+	}
+	return entry, nil
 }
 
 // invalidateTeam drops every cached entry whose key references the given team.
@@ -214,7 +218,11 @@ func (c *teamsCache) getOrFetch(ctx context.Context, loader func() ([]Team, erro
 	if shared {
 		tflog.Debug(ctx, "teams cache fetch coalesced via singleflight", nil)
 	}
-	return v.(*teamsCacheEntry), nil
+	entry, ok := v.(*teamsCacheEntry)
+	if !ok {
+		return nil, fmt.Errorf("teams cache: unexpected singleflight value type %T", v)
+	}
+	return entry, nil
 }
 
 // invalidate drops the cached team list. Called after writes that modify teams
