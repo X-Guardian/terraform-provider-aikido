@@ -125,7 +125,7 @@ func (r *DomainResource) Create(ctx context.Context, req resource.CreateRequest,
 
 	data.ID = types.StringValue(strconv.Itoa(domainID))
 
-	tflog.Trace(ctx, "created domain", map[string]interface{}{"id": domainID, "domain": data.Domain.ValueString()})
+	tflog.Debug(ctx, "created domain", map[string]interface{}{"id": domainID, "domain": data.Domain.ValueString()})
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
@@ -185,7 +185,7 @@ func (r *DomainResource) Delete(ctx context.Context, req resource.DeleteRequest,
 		return
 	}
 
-	tflog.Trace(ctx, "deleted domain", map[string]interface{}{"id": domainID})
+	tflog.Debug(ctx, "deleted domain", map[string]interface{}{"id": domainID})
 }
 
 func (r *DomainResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {

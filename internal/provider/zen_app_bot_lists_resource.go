@@ -121,7 +121,7 @@ func (r *ZenAppBotListsResource) Create(ctx context.Context, req resource.Create
 	}
 
 	data.ID = data.AppID
-	tflog.Trace(ctx, "set zen app bot lists", map[string]interface{}{"app_id": appID})
+	tflog.Debug(ctx, "set zen app bot lists", map[string]interface{}{"app_id": appID})
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
 
@@ -179,7 +179,7 @@ func (r *ZenAppBotListsResource) Update(ctx context.Context, req resource.Update
 	}
 
 	data.ID = data.AppID
-	tflog.Trace(ctx, "updated zen app bot lists", map[string]interface{}{"app_id": appID})
+	tflog.Debug(ctx, "updated zen app bot lists", map[string]interface{}{"app_id": appID})
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
 
@@ -202,7 +202,7 @@ func (r *ZenAppBotListsResource) Delete(ctx context.Context, req resource.Delete
 		return
 	}
 
-	tflog.Trace(ctx, "cleared zen app bot lists (delete)", map[string]interface{}{"app_id": appID})
+	tflog.Debug(ctx, "cleared zen app bot lists (delete)", map[string]interface{}{"app_id": appID})
 }
 
 func (r *ZenAppBotListsResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {

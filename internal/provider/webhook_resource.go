@@ -145,7 +145,7 @@ func (r *WebhookResource) Create(ctx context.Context, req resource.CreateRequest
 	data.HealthStatus = types.StringValue("unknown")
 	data.LatestHTTPStatusCode = types.Int64Value(0)
 
-	tflog.Trace(ctx, "created webhook", map[string]interface{}{"id": webhookID})
+	tflog.Debug(ctx, "created webhook", map[string]interface{}{"id": webhookID})
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
@@ -201,7 +201,7 @@ func (r *WebhookResource) Delete(ctx context.Context, req resource.DeleteRequest
 		return
 	}
 
-	tflog.Trace(ctx, "deleted webhook", map[string]interface{}{"id": webhookID})
+	tflog.Debug(ctx, "deleted webhook", map[string]interface{}{"id": webhookID})
 }
 
 func (r *WebhookResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {

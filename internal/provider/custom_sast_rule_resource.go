@@ -149,7 +149,7 @@ func (r *CustomRuleResource) Create(ctx context.Context, req resource.CreateRequ
 
 	r.ruleToModel(rule, &data)
 
-	tflog.Trace(ctx, "created custom rule", map[string]interface{}{"id": ruleID})
+	tflog.Debug(ctx, "created custom rule", map[string]interface{}{"id": ruleID})
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
@@ -212,7 +212,7 @@ func (r *CustomRuleResource) Update(ctx context.Context, req resource.UpdateRequ
 
 	r.ruleToModel(rule, &data)
 
-	tflog.Trace(ctx, "updated custom rule", map[string]interface{}{"id": ruleID})
+	tflog.Debug(ctx, "updated custom rule", map[string]interface{}{"id": ruleID})
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
@@ -236,7 +236,7 @@ func (r *CustomRuleResource) Delete(ctx context.Context, req resource.DeleteRequ
 		return
 	}
 
-	tflog.Trace(ctx, "deleted custom rule", map[string]interface{}{"id": ruleID})
+	tflog.Debug(ctx, "deleted custom rule", map[string]interface{}{"id": ruleID})
 }
 
 func (r *CustomRuleResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {

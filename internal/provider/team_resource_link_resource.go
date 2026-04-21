@@ -124,7 +124,7 @@ func (r *TeamResourceLinkResource) Create(ctx context.Context, req resource.Crea
 
 	data.ID = types.StringValue(fmt.Sprintf("%d:%s:%d", teamID, resourceType, resourceID))
 
-	tflog.Trace(ctx, "linked resource to team", map[string]interface{}{"team_id": teamID, "resource_type": resourceType, "resource_id": resourceID})
+	tflog.Debug(ctx, "linked resource to team", map[string]interface{}{"team_id": teamID, "resource_type": resourceType, "resource_id": resourceID})
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
@@ -186,7 +186,7 @@ func (r *TeamResourceLinkResource) Delete(ctx context.Context, req resource.Dele
 		return
 	}
 
-	tflog.Trace(ctx, "unlinked resource from team", map[string]interface{}{"team_id": teamID, "resource_type": resourceType, "resource_id": resourceID})
+	tflog.Debug(ctx, "unlinked resource from team", map[string]interface{}{"team_id": teamID, "resource_type": resourceType, "resource_id": resourceID})
 }
 
 func (r *TeamResourceLinkResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {

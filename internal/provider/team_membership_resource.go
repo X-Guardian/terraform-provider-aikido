@@ -109,7 +109,7 @@ func (r *TeamMembershipResource) Create(ctx context.Context, req resource.Create
 
 	data.ID = types.StringValue(fmt.Sprintf("%d:%d", teamID, userID))
 
-	tflog.Trace(ctx, "created team membership", map[string]interface{}{"team_id": teamID, "user_id": userID})
+	tflog.Debug(ctx, "created team membership", map[string]interface{}{"team_id": teamID, "user_id": userID})
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
@@ -167,7 +167,7 @@ func (r *TeamMembershipResource) Delete(ctx context.Context, req resource.Delete
 		return
 	}
 
-	tflog.Trace(ctx, "deleted team membership", map[string]interface{}{"team_id": teamID, "user_id": userID})
+	tflog.Debug(ctx, "deleted team membership", map[string]interface{}{"team_id": teamID, "user_id": userID})
 }
 
 func (r *TeamMembershipResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {

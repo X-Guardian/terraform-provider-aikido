@@ -99,7 +99,7 @@ func (r *ZenAppIPBlocklistResource) Create(ctx context.Context, req resource.Cre
 	}
 
 	data.ID = data.AppID
-	tflog.Trace(ctx, "set zen app IP blocklist", map[string]interface{}{"app_id": appID})
+	tflog.Debug(ctx, "set zen app IP blocklist", map[string]interface{}{"app_id": appID})
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
 
@@ -132,7 +132,7 @@ func (r *ZenAppIPBlocklistResource) Update(ctx context.Context, req resource.Upd
 	}
 
 	data.ID = data.AppID
-	tflog.Trace(ctx, "updated zen app IP blocklist", map[string]interface{}{"app_id": appID})
+	tflog.Debug(ctx, "updated zen app IP blocklist", map[string]interface{}{"app_id": appID})
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
 
@@ -155,7 +155,7 @@ func (r *ZenAppIPBlocklistResource) Delete(ctx context.Context, req resource.Del
 		return
 	}
 
-	tflog.Trace(ctx, "cleared zen app IP blocklist (delete)", map[string]interface{}{"app_id": appID})
+	tflog.Debug(ctx, "cleared zen app IP blocklist (delete)", map[string]interface{}{"app_id": appID})
 }
 
 func (r *ZenAppIPBlocklistResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {

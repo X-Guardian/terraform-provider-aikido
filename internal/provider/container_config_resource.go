@@ -195,7 +195,7 @@ func (r *ContainerConfigResource) Create(ctx context.Context, req resource.Creat
 
 	r.mapContainerToModel(container, &data)
 
-	tflog.Trace(ctx, "created container config", map[string]interface{}{"id": containerID})
+	tflog.Debug(ctx, "created container config", map[string]interface{}{"id": containerID})
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
@@ -289,7 +289,7 @@ func (r *ContainerConfigResource) Update(ctx context.Context, req resource.Updat
 
 	r.mapContainerToModel(container, &plan)
 
-	tflog.Trace(ctx, "updated container config", map[string]interface{}{"id": containerID})
+	tflog.Debug(ctx, "updated container config", map[string]interface{}{"id": containerID})
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }
@@ -313,7 +313,7 @@ func (r *ContainerConfigResource) Delete(ctx context.Context, req resource.Delet
 		return
 	}
 
-	tflog.Trace(ctx, "deactivated container (delete)", map[string]interface{}{"id": containerID})
+	tflog.Debug(ctx, "deactivated container (delete)", map[string]interface{}{"id": containerID})
 }
 
 func (r *ContainerConfigResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
