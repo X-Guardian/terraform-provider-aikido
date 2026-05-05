@@ -228,12 +228,12 @@ func (c *AikidoClient) DoRequest(ctx context.Context, method, path string, body 
 		}
 
 		tflog.Debug(ctx, "retrying aikido request after retryable status", map[string]interface{}{
-			"method":   method,
-			"path":     path,
-			"status":   resp.StatusCode,
-			"attempt":  attempt + 1,
-			"max":      maxRateLimitRetries,
-			"wait":     wait.String(),
+			"method":  method,
+			"path":    path,
+			"status":  resp.StatusCode,
+			"attempt": attempt + 1,
+			"max":     maxRateLimitRetries,
+			"wait":    wait.String(),
 		})
 
 		select {
