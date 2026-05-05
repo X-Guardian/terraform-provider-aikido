@@ -190,16 +190,19 @@ func (c *AikidoClient) RemoveCodeRepoExcludePath(ctx context.Context, repoID int
 	return nil
 }
 
+// codeReposPageSize is the per_page value used when listing code repositories.
+// Matches the API maximum documented at GET /repositories/code (per_page max 200).
+const codeReposPageSize = 200
+
 // ListCodeRepos returns all code repositories by paginating through every page.
 func (c *AikidoClient) ListCodeRepos(ctx context.Context, opts *ListCodeReposOptions) ([]CodeRepo, error) {
 	var allRepos []CodeRepo
 	page := 0
-	perPage := 200
 
 	for {
 		params := url.Values{}
 		params.Set("page", fmt.Sprintf("%d", page))
-		params.Set("per_page", fmt.Sprintf("%d", perPage))
+		params.Set("per_page", fmt.Sprintf("%d", codeReposPageSize))
 
 		if opts != nil {
 			if opts.IncludeInactive {
@@ -224,7 +227,7 @@ func (c *AikidoClient) ListCodeRepos(ctx context.Context, opts *ListCodeReposOpt
 
 		allRepos = append(allRepos, repos...)
 
-		if len(repos) < perPage {
+		if len(repos) < codeReposPageSize {
 			break
 		}
 

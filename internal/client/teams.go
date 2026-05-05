@@ -89,8 +89,12 @@ func (c *AikidoClient) ListTeams(ctx context.Context) ([]Team, error) {
 	return entry.teams, nil
 }
 
+// teamsPageSize is the per_page value used when listing teams.
+// Matches the API maximum documented at GET /teams (per_page max 20).
+const teamsPageSize = 20
+
 // listTeamsUncached performs the actual paginated fetch, bypassing the cache.
-// The API caps per_page at 20 so pagination cost scales linearly with team count.
+// Pagination cost scales linearly with team count because of the small page size.
 func (c *AikidoClient) listTeamsUncached(ctx context.Context) ([]Team, error) {
 	var allTeams []Team
 	page := 0
@@ -107,7 +111,7 @@ func (c *AikidoClient) listTeamsUncached(ctx context.Context) ([]Team, error) {
 
 		allTeams = append(allTeams, teams...)
 
-		if len(teams) < 20 {
+		if len(teams) < teamsPageSize {
 			break
 		}
 
@@ -119,7 +123,7 @@ func (c *AikidoClient) listTeamsUncached(ctx context.Context) ([]Team, error) {
 
 // getTeamsPage fetches a single page of teams and closes the response body.
 func (c *AikidoClient) getTeamsPage(ctx context.Context, page int) ([]Team, error) {
-	resp, err := c.DoRequest(ctx, http.MethodGet, fmt.Sprintf("/teams?page=%d&per_page=20", page), nil)
+	resp, err := c.DoRequest(ctx, http.MethodGet, fmt.Sprintf("/teams?page=%d&per_page=%d", page, teamsPageSize), nil)
 	if err != nil {
 		return nil, fmt.Errorf("listing teams (page %d): %w", page, err)
 	}

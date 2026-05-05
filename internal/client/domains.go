@@ -50,14 +50,17 @@ func (c *AikidoClient) CreateDomain(ctx context.Context, req CreateDomainRequest
 	return createResp.ID, nil
 }
 
+// domainsPageSize is the per_page value used when listing domains.
+// Matches the API maximum documented at GET /domains (per_page max 20).
+const domainsPageSize = 20
+
 // GetDomain retrieves a single domain by ID by paginating through the list endpoint.
 func (c *AikidoClient) GetDomain(ctx context.Context, domainID int) (*Domain, error) {
 	page := 0
-	pageSize := 20
 	for {
 		params := url.Values{}
 		params.Set("page", strconv.Itoa(page))
-		params.Set("page_size", strconv.Itoa(pageSize))
+		params.Set("per_page", strconv.Itoa(domainsPageSize))
 
 		domains, err := c.getDomainsPage(ctx, params)
 		if err != nil {
@@ -74,7 +77,7 @@ func (c *AikidoClient) GetDomain(ctx context.Context, domainID int) (*Domain, er
 			}
 		}
 
-		if len(domains) < pageSize {
+		if len(domains) < domainsPageSize {
 			return nil, fmt.Errorf("domain with ID %d not found", domainID)
 		}
 
@@ -86,12 +89,11 @@ func (c *AikidoClient) GetDomain(ctx context.Context, domainID int) (*Domain, er
 func (c *AikidoClient) ListDomains(ctx context.Context) ([]Domain, error) {
 	var allDomains []Domain
 	page := 0
-	pageSize := 20
 
 	for {
 		params := url.Values{}
 		params.Set("page", strconv.Itoa(page))
-		params.Set("page_size", strconv.Itoa(pageSize))
+		params.Set("per_page", strconv.Itoa(domainsPageSize))
 
 		domains, err := c.getDomainsPage(ctx, params)
 		if err != nil {
@@ -104,7 +106,7 @@ func (c *AikidoClient) ListDomains(ctx context.Context) ([]Domain, error) {
 
 		allDomains = append(allDomains, domains...)
 
-		if len(domains) < pageSize {
+		if len(domains) < domainsPageSize {
 			break
 		}
 

@@ -66,14 +66,17 @@ type KubernetesCloudResponse struct {
 	CreatedAt  int64  `json:"created_at"`
 }
 
+// cloudsPageSize is the per_page value used when listing clouds.
+// Matches the API maximum documented at GET /clouds (per_page max 20).
+const cloudsPageSize = 20
+
 // GetCloud retrieves a single cloud by ID by paginating through the list endpoint.
 func (c *AikidoClient) GetCloud(ctx context.Context, cloudID int) (*Cloud, error) {
 	page := 0
-	perPage := 20
 	for {
 		params := url.Values{}
 		params.Set("page", strconv.Itoa(page))
-		params.Set("per_page", strconv.Itoa(perPage))
+		params.Set("per_page", strconv.Itoa(cloudsPageSize))
 
 		clouds, err := c.getCloudsPage(ctx, params)
 		if err != nil {
@@ -90,7 +93,7 @@ func (c *AikidoClient) GetCloud(ctx context.Context, cloudID int) (*Cloud, error
 			}
 		}
 
-		if len(clouds) < perPage {
+		if len(clouds) < cloudsPageSize {
 			return nil, fmt.Errorf("cloud with ID %d not found", cloudID)
 		}
 
@@ -102,12 +105,11 @@ func (c *AikidoClient) GetCloud(ctx context.Context, cloudID int) (*Cloud, error
 func (c *AikidoClient) ListClouds(ctx context.Context) ([]Cloud, error) {
 	var allClouds []Cloud
 	page := 0
-	perPage := 20
 
 	for {
 		params := url.Values{}
 		params.Set("page", strconv.Itoa(page))
-		params.Set("per_page", strconv.Itoa(perPage))
+		params.Set("per_page", strconv.Itoa(cloudsPageSize))
 
 		clouds, err := c.getCloudsPage(ctx, params)
 		if err != nil {
@@ -120,7 +122,7 @@ func (c *AikidoClient) ListClouds(ctx context.Context) ([]Cloud, error) {
 
 		allClouds = append(allClouds, clouds...)
 
-		if len(clouds) < perPage {
+		if len(clouds) < cloudsPageSize {
 			break
 		}
 
