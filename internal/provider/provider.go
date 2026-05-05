@@ -137,16 +137,13 @@ func (p *AikidoProvider) Configure(ctx context.Context, req provider.ConfigureRe
 		}
 	}
 
-	aikidoClient := client.NewAikidoClient(baseURL, clientID, clientSecret)
-
 	// Resolve rate limit tier: config > env > default "standard"
 	rateLimitTier := data.RateLimitTier.ValueString()
 	if rateLimitTier == "" {
 		rateLimitTier = os.Getenv("AIKIDO_RATE_LIMIT_TIER")
 	}
-	if rateLimitTier == "enhanced" {
-		aikidoClient.SetRateLimit(48.0 / 60.0) // 48 req/min (under the 50/min limit)
-	}
+
+	aikidoClient := client.NewAikidoClient(baseURL, clientID, clientSecret, client.RateLimitTierFromString(rateLimitTier))
 
 	resp.DataSourceData = aikidoClient
 	resp.ResourceData = aikidoClient

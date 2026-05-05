@@ -14,8 +14,61 @@ import (
 	"sync"
 	"time"
 
+	"github.com/hashicorp/terraform-plugin-log/tflog"
 	"golang.org/x/time/rate"
 )
+
+// RateLimitTier selects the rate at which requests are issued to the Aikido API.
+// Each tier is set just under the corresponding API quota to give headroom for
+// parallel Terraform operations.
+type RateLimitTier int
+
+const (
+	// RateLimitTierStandard targets the default 20 req/min API quota.
+	RateLimitTierStandard RateLimitTier = iota
+	// RateLimitTierEnhanced targets the higher 50 req/min API quota.
+	RateLimitTierEnhanced
+)
+
+const (
+	// standardTierRPM matches the Aikido API quota for the standard tier.
+	// We pace at the full quota; any overshoot from parallel ops is handled by
+	// the Retry-After backoff in DoRequest.
+	standardTierRPM = 20
+	// enhancedTierRPM matches the Aikido API quota for the enhanced tier.
+	// Same rationale as standardTierRPM.
+	enhancedTierRPM = 50
+
+	// rateLimiterBurst lets short clusters of requests fire immediately while the
+	// long-run average stays bounded by the tier's RPM.
+	rateLimiterBurst = 3
+
+	// maxRateLimitRetries caps how many times a request retries after a 429 or transient 5xx.
+	maxRateLimitRetries = 3
+	// defaultRetryAfter is used when the server returns 429 without a Retry-After header.
+	defaultRetryAfter = 30 * time.Second
+	// transient5xxBackoff is the wait between retries for 502/503/504 responses.
+	transient5xxBackoff = 5 * time.Second
+)
+
+// RateLimitTierFromString parses a tier name from config or env. Empty or
+// unknown values fall back to the standard tier.
+func RateLimitTierFromString(s string) RateLimitTier {
+	switch s {
+	case "enhanced":
+		return RateLimitTierEnhanced
+	default:
+		return RateLimitTierStandard
+	}
+}
+
+func newLimiterForTier(tier RateLimitTier) *rate.Limiter {
+	rpm := standardTierRPM
+	if tier == RateLimitTierEnhanced {
+		rpm = enhancedTierRPM
+	}
+	return rate.NewLimiter(rate.Every(time.Minute/time.Duration(rpm)), rateLimiterBurst)
+}
 
 // AikidoClient handles authentication and HTTP requests to the Aikido API.
 type AikidoClient struct {
@@ -38,24 +91,32 @@ type tokenResponse struct {
 	TokenType   string `json:"token_type"`
 }
 
-// NewAikidoClient creates a new Aikido API client.
-// The rate limiter is set to 18 requests per minute (slightly under the 20/min API limit)
-// to avoid hitting 429s from parallel Terraform operations.
-func NewAikidoClient(baseURL, clientID, clientSecret string) *AikidoClient {
+// NewAikidoClient creates a new Aikido API client at the given rate limit tier.
+func NewAikidoClient(baseURL, clientID, clientSecret string, tier RateLimitTier) *AikidoClient {
 	return &AikidoClient{
 		BaseURL:      strings.TrimRight(baseURL, "/"),
 		ClientID:     clientID,
 		ClientSecret: clientSecret,
 		HTTPClient:   &http.Client{Timeout: 30 * time.Second},
-		limiter:      rate.NewLimiter(rate.Every(time.Minute/18), 1),
+		limiter:      newLimiterForTier(tier),
 		usersCache:   newUsersCache(5 * time.Minute),
 		teamsCache:   newTeamsCache(5 * time.Minute),
 	}
 }
 
-// SetRateLimit overrides the default rate limiter. Useful for testing.
-func (c *AikidoClient) SetRateLimit(requestsPerSecond float64) {
-	c.limiter = rate.NewLimiter(rate.Limit(requestsPerSecond), 1)
+// SetRateLimitTier replaces the client's rate limiter with one for the given tier.
+func (c *AikidoClient) SetRateLimitTier(tier RateLimitTier) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.limiter = newLimiterForTier(tier)
+}
+
+// SetRateLimitForTesting replaces the rate limiter with one that allows the given
+// requests-per-second. Use this only from tests to avoid pacing delays.
+func (c *AikidoClient) SetRateLimitForTesting(requestsPerSecond float64) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.limiter = rate.NewLimiter(rate.Limit(requestsPerSecond), rateLimiterBurst)
 }
 
 // authenticate obtains or refreshes the OAuth2 access token.
@@ -107,8 +168,8 @@ func (c *AikidoClient) authenticate(ctx context.Context) error {
 
 // DoRequest performs an authenticated HTTP request to the Aikido API.
 // The path should be relative to /api/public/v1 (e.g., "/teams").
-// Requests are rate-limited to stay within the API's 20 calls/minute limit.
-// Automatically retries on 429 Too Many Requests using the Retry-After header.
+// Requests are rate-limited per the configured tier and automatically retried
+// on 429 Too Many Requests (using the Retry-After header) and transient 5xx errors.
 func (c *AikidoClient) DoRequest(ctx context.Context, method, path string, body interface{}) (*http.Response, error) {
 	if err := c.authenticate(ctx); err != nil {
 		return nil, fmt.Errorf("authentication failed: %w", err)
@@ -125,10 +186,13 @@ func (c *AikidoClient) DoRequest(ctx context.Context, method, path string, body 
 		}
 	}
 
-	maxRetries := 3
-	for attempt := 0; attempt <= maxRetries; attempt++ {
-		// Wait for rate limiter before sending.
-		if err := c.limiter.Wait(ctx); err != nil {
+	for attempt := 0; attempt <= maxRateLimitRetries; attempt++ {
+		// Wait for rate limiter before sending. Snapshot under the mutex so a
+		// concurrent SetRateLimitTier call cannot race the pointer read.
+		c.mu.Lock()
+		limiter := c.limiter
+		c.mu.Unlock()
+		if err := limiter.Wait(ctx); err != nil {
 			return nil, fmt.Errorf("rate limiter: %w", err)
 		}
 
@@ -152,24 +216,25 @@ func (c *AikidoClient) DoRequest(ctx context.Context, method, path string, body 
 			return nil, fmt.Errorf("executing request: %w", err)
 		}
 
-		if resp.StatusCode != http.StatusTooManyRequests {
+		if !shouldRetryStatus(resp.StatusCode) {
 			return resp, nil
 		}
 
+		wait := backoffForResponse(resp)
 		resp.Body.Close()
 
-		if attempt == maxRetries {
-			return nil, fmt.Errorf("rate limited after %d retries", maxRetries)
+		if attempt == maxRateLimitRetries {
+			return nil, fmt.Errorf("request to %s failed with status %d after %d retries", path, resp.StatusCode, maxRateLimitRetries)
 		}
 
-		// Back off using Retry-After header, falling back to 30s.
-		retryAfter := resp.Header.Get("Retry-After")
-		wait := 30 * time.Second
-		if retryAfter != "" {
-			if seconds, err := strconv.Atoi(retryAfter); err == nil {
-				wait = time.Duration(seconds) * time.Second
-			}
-		}
+		tflog.Debug(ctx, "retrying aikido request after retryable status", map[string]interface{}{
+			"method":  method,
+			"path":    path,
+			"status":  resp.StatusCode,
+			"attempt": attempt + 1,
+			"max":     maxRateLimitRetries,
+			"wait":    wait.String(),
+		})
 
 		select {
 		case <-ctx.Done():
@@ -178,7 +243,33 @@ func (c *AikidoClient) DoRequest(ctx context.Context, method, path string, body 
 		}
 	}
 
-	return nil, fmt.Errorf("rate limited: exhausted retries")
+	return nil, fmt.Errorf("request to %s exhausted retries", path)
+}
+
+// shouldRetryStatus reports whether a status code is one we retry transparently.
+func shouldRetryStatus(status int) bool {
+	switch status {
+	case http.StatusTooManyRequests,
+		http.StatusBadGateway,
+		http.StatusServiceUnavailable,
+		http.StatusGatewayTimeout:
+		return true
+	}
+	return false
+}
+
+// backoffForResponse picks a wait duration based on the response. 429 honours
+// Retry-After; transient 5xx uses a fixed short backoff.
+func backoffForResponse(resp *http.Response) time.Duration {
+	if resp.StatusCode == http.StatusTooManyRequests {
+		if retryAfter := resp.Header.Get("Retry-After"); retryAfter != "" {
+			if seconds, err := strconv.Atoi(retryAfter); err == nil {
+				return time.Duration(seconds) * time.Second
+			}
+		}
+		return defaultRetryAfter
+	}
+	return transient5xxBackoff
 }
 
 // errorBody reads an HTTP response body and returns a clean error string.

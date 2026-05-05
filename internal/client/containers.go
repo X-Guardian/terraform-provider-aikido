@@ -10,6 +10,10 @@ import (
 	"strconv"
 )
 
+// containersPageSize is the per_page value used when listing containers.
+// Matches the API maximum documented at GET /containers (per_page max 100).
+const containersPageSize = 100
+
 // Container represents a container repository in the Aikido API (list response).
 type Container struct {
 	ID               int     `json:"id"`
@@ -69,12 +73,11 @@ func (c *AikidoClient) GetContainer(ctx context.Context, containerID int) (*Cont
 func (c *AikidoClient) ListContainers(ctx context.Context, opts *ListContainersOptions) ([]Container, error) {
 	var allContainers []Container
 	page := 0
-	pageSize := 200
 
 	for {
 		params := url.Values{}
 		params.Set("page", strconv.Itoa(page))
-		params.Set("pageSize", strconv.Itoa(pageSize))
+		params.Set("per_page", strconv.Itoa(containersPageSize))
 
 		if opts != nil {
 			if opts.FilterName != "" {
@@ -102,7 +105,7 @@ func (c *AikidoClient) ListContainers(ctx context.Context, opts *ListContainersO
 
 		allContainers = append(allContainers, containers...)
 
-		if len(containers) < pageSize {
+		if len(containers) < containersPageSize {
 			break
 		}
 
