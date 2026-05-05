@@ -14,6 +14,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/hashicorp/terraform-plugin-log/tflog"
 	"golang.org/x/time/rate"
 )
 
@@ -225,6 +226,15 @@ func (c *AikidoClient) DoRequest(ctx context.Context, method, path string, body 
 		if attempt == maxRateLimitRetries {
 			return nil, fmt.Errorf("request to %s failed with status %d after %d retries", path, resp.StatusCode, maxRateLimitRetries)
 		}
+
+		tflog.Debug(ctx, "retrying aikido request after retryable status", map[string]interface{}{
+			"method":   method,
+			"path":     path,
+			"status":   resp.StatusCode,
+			"attempt":  attempt + 1,
+			"max":      maxRateLimitRetries,
+			"wait":     wait.String(),
+		})
 
 		select {
 		case <-ctx.Done():
