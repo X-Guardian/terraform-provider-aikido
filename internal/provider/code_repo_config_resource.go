@@ -105,11 +105,7 @@ func (r *CodeRepoConfigResource) Schema(ctx context.Context, req resource.Schema
 			},
 			"dev_dep_scanning_enabled": schema.BoolAttribute{
 				Optional:            true,
-				Computed:            true,
 				MarkdownDescription: "Whether development dependency scanning is enabled.",
-				PlanModifiers: []planmodifier.Bool{
-					boolplanmodifier.UseStateForUnknown(),
-				},
 			},
 			"excluded_paths": schema.SetAttribute{
 				Optional:            true,
@@ -294,10 +290,12 @@ func (r *CodeRepoConfigResource) Update(ctx context.Context, req resource.Update
 	}
 
 	// Apply excluded paths changes.
-	if !plan.ExcludedPaths.IsNull() {
+	if !plan.ExcludedPaths.IsNull() && !plan.ExcludedPaths.IsUnknown() {
 		var planPaths, statePaths []string
 		resp.Diagnostics.Append(plan.ExcludedPaths.ElementsAs(ctx, &planPaths, false)...)
-		resp.Diagnostics.Append(state.ExcludedPaths.ElementsAs(ctx, &statePaths, false)...)
+		if !state.ExcludedPaths.IsNull() && !state.ExcludedPaths.IsUnknown() {
+			resp.Diagnostics.Append(state.ExcludedPaths.ElementsAs(ctx, &statePaths, false)...)
+		}
 		if resp.Diagnostics.HasError() {
 			return
 		}
@@ -354,7 +352,7 @@ func (r *CodeRepoConfigResource) ImportState(ctx context.Context, req resource.I
 
 // applyConfig applies the user's configured settings to the repo during create.
 func (r *CodeRepoConfigResource) applyConfig(ctx context.Context, repoID int, data *CodeRepoConfigResourceModel, diags *diag.Diagnostics) {
-	if !data.Active.IsNull() {
+	if !data.Active.IsNull() && !data.Active.IsUnknown() {
 		if data.Active.ValueBool() {
 			if err := r.client.ActivateCodeRepo(ctx, repoID); err != nil {
 				diags.AddError("Error Activating Code Repo", err.Error())
@@ -368,14 +366,14 @@ func (r *CodeRepoConfigResource) applyConfig(ctx context.Context, repoID int, da
 		}
 	}
 
-	if !data.Sensitivity.IsNull() {
+	if !data.Sensitivity.IsNull() && !data.Sensitivity.IsUnknown() {
 		if err := r.client.UpdateCodeRepoSensitivity(ctx, repoID, data.Sensitivity.ValueString()); err != nil {
 			diags.AddError("Error Updating Sensitivity", err.Error())
 			return
 		}
 	}
 
-	if !data.Connectivity.IsNull() {
+	if !data.Connectivity.IsNull() && !data.Connectivity.IsUnknown() {
 		if err := r.client.UpdateCodeRepoConnectivity(ctx, repoID, data.Connectivity.ValueString()); err != nil {
 			diags.AddError("Error Updating Connectivity", err.Error())
 			return
@@ -389,7 +387,7 @@ func (r *CodeRepoConfigResource) applyConfig(ctx context.Context, repoID int, da
 		}
 	}
 
-	if !data.ExcludedPaths.IsNull() {
+	if !data.ExcludedPaths.IsNull() && !data.ExcludedPaths.IsUnknown() {
 		var paths []string
 		diags.Append(data.ExcludedPaths.ElementsAs(ctx, &paths, false)...)
 		if diags.HasError() {
