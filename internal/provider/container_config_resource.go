@@ -96,37 +96,22 @@ func (r *ContainerConfigResource) Schema(ctx context.Context, req resource.Schem
 			"name": schema.StringAttribute{
 				Computed:            true,
 				MarkdownDescription: "The name of the container repository.",
-				PlanModifiers: []planmodifier.String{
-					stringplanmodifier.UseStateForUnknown(),
-				},
 			},
 			"provider_name": schema.StringAttribute{
 				Computed:            true,
 				MarkdownDescription: "The registry provider.",
-				PlanModifiers: []planmodifier.String{
-					stringplanmodifier.UseStateForUnknown(),
-				},
 			},
 			"registry_name": schema.StringAttribute{
 				Computed:            true,
 				MarkdownDescription: "The name of the registry.",
-				PlanModifiers: []planmodifier.String{
-					stringplanmodifier.UseStateForUnknown(),
-				},
 			},
 			"tag": schema.StringAttribute{
 				Computed:            true,
 				MarkdownDescription: "The current tag being scanned.",
-				PlanModifiers: []planmodifier.String{
-					stringplanmodifier.UseStateForUnknown(),
-				},
 			},
 			"distro": schema.StringAttribute{
 				Computed:            true,
 				MarkdownDescription: "The OS distribution.",
-				PlanModifiers: []planmodifier.String{
-					stringplanmodifier.UseStateForUnknown(),
-				},
 			},
 		},
 	}
