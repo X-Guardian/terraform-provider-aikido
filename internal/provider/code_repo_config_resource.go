@@ -119,30 +119,18 @@ func (r *CodeRepoConfigResource) Schema(ctx context.Context, req resource.Schema
 			"name": schema.StringAttribute{
 				Computed:            true,
 				MarkdownDescription: "The name of the code repository.",
-				PlanModifiers: []planmodifier.String{
-					stringplanmodifier.UseStateForUnknown(),
-				},
 			},
 			"provider_name": schema.StringAttribute{
 				Computed:            true,
 				MarkdownDescription: "The Git provider (e.g., github, gitlab, bitbucket).",
-				PlanModifiers: []planmodifier.String{
-					stringplanmodifier.UseStateForUnknown(),
-				},
 			},
 			"branch": schema.StringAttribute{
 				Computed:            true,
 				MarkdownDescription: "The branch being scanned.",
-				PlanModifiers: []planmodifier.String{
-					stringplanmodifier.UseStateForUnknown(),
-				},
 			},
 			"url": schema.StringAttribute{
 				Computed:            true,
 				MarkdownDescription: "The URL of the repository.",
-				PlanModifiers: []planmodifier.String{
-					stringplanmodifier.UseStateForUnknown(),
-				},
 			},
 		},
 	}
