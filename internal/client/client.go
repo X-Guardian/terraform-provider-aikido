@@ -44,10 +44,13 @@ const (
 	rateLimiterBurst = 3
 
 	// maxRateLimitRetries caps how many times a request retries after a 429 or transient 5xx.
-	maxRateLimitRetries = 3
-	// defaultRetryAfter is used when the server returns 429 without a Retry-After header.
-	defaultRetryAfter = 30 * time.Second
-	// transient5xxBackoff is the wait between retries for 502/503/504 responses.
+	maxRateLimitRetries = 8
+	// defaultRetryAfter is the base wait when the server returns 429 without a
+	// Retry-After header. Subsequent attempts back off exponentially from this.
+	defaultRetryAfter = 5 * time.Second
+	// maxBackoff caps the per-attempt wait so retries stay bounded.
+	maxBackoff = 60 * time.Second
+	// transient5xxBackoff is the base wait between retries for 502/503/504 responses.
 	transient5xxBackoff = 5 * time.Second
 )
 
@@ -220,7 +223,7 @@ func (c *AikidoClient) DoRequest(ctx context.Context, method, path string, body 
 			return resp, nil
 		}
 
-		wait := backoffForResponse(resp)
+		wait := backoffForResponse(resp, attempt)
 		resp.Body.Close()
 
 		if attempt == maxRateLimitRetries {
@@ -258,18 +261,38 @@ func shouldRetryStatus(status int) bool {
 	return false
 }
 
-// backoffForResponse picks a wait duration based on the response. 429 honours
-// Retry-After; transient 5xx uses a fixed short backoff.
-func backoffForResponse(resp *http.Response) time.Duration {
+// backoffForResponse picks a wait duration based on the response and the
+// zero-based attempt number. A 429 with a Retry-After header honours it exactly;
+// otherwise the wait grows exponentially from the base (per status) with a small
+// deterministic jitter, capped at maxBackoff. Exponential backoff spreads out the
+// many concurrent retries a large Terraform plan generates so they stop colliding.
+func backoffForResponse(resp *http.Response, attempt int) time.Duration {
 	if resp.StatusCode == http.StatusTooManyRequests {
 		if retryAfter := resp.Header.Get("Retry-After"); retryAfter != "" {
 			if seconds, err := strconv.Atoi(retryAfter); err == nil {
 				return time.Duration(seconds) * time.Second
 			}
 		}
-		return defaultRetryAfter
+		return expBackoff(defaultRetryAfter, attempt)
 	}
-	return transient5xxBackoff
+	return expBackoff(transient5xxBackoff, attempt)
+}
+
+// expBackoff returns base * 2^attempt plus deterministic jitter, capped at maxBackoff.
+// Jitter is derived from the attempt number (not a global RNG) so behaviour stays
+// reproducible in tests while still de-synchronising concurrent retries by a fraction.
+func expBackoff(base time.Duration, attempt int) time.Duration {
+	wait := base << attempt
+	if wait <= 0 || wait > maxBackoff {
+		wait = maxBackoff
+	}
+	// Jitter up to ~12.5% of the wait, varied per attempt.
+	jitter := (wait / 8) * time.Duration(attempt%3) / 2
+	wait += jitter
+	if wait > maxBackoff {
+		wait = maxBackoff
+	}
+	return wait
 }
 
 // errorBody reads an HTTP response body and returns a clean error string.

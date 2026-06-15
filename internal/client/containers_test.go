@@ -172,6 +172,52 @@ func TestUpdateContainerConnectivity(t *testing.T) {
 	}
 }
 
+func TestLinkCodeRepoToContainer(t *testing.T) {
+	server, c := newTestServer(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/api/public/v1/containers/linkCodeRepo" {
+			t.Errorf("unexpected path: %s", r.URL.Path)
+		}
+		var body map[string]int
+		mustDecode(t, r, &body)
+		if body["container_repo_id"] != 42 {
+			t.Errorf("expected container_repo_id 42, got %d", body["container_repo_id"])
+		}
+		if body["code_repo_id"] != 7 {
+			t.Errorf("expected code_repo_id 7, got %d", body["code_repo_id"])
+		}
+		mustEncode(t, w, map[string]int{"success": 1})
+	})
+	defer server.Close()
+
+	err := c.LinkCodeRepoToContainer(context.Background(), 42, 7)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestUnlinkCodeRepoFromContainer(t *testing.T) {
+	server, c := newTestServer(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/api/public/v1/containers/unlinkCodeRepo" {
+			t.Errorf("unexpected path: %s", r.URL.Path)
+		}
+		var body map[string]int
+		mustDecode(t, r, &body)
+		if body["container_repo_id"] != 42 {
+			t.Errorf("expected container_repo_id 42, got %d", body["container_repo_id"])
+		}
+		if _, ok := body["code_repo_id"]; ok {
+			t.Errorf("unlink should not send code_repo_id")
+		}
+		mustEncode(t, w, map[string]int{"success": 1})
+	})
+	defer server.Close()
+
+	err := c.UnlinkCodeRepoFromContainer(context.Background(), 42)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
 func TestUpdateContainerTagFilter(t *testing.T) {
 	server, c := newTestServer(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/api/public/v1/containers/updateTagFilter" {

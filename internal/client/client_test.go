@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 )
 
 func TestAuthenticate_Success(t *testing.T) {
@@ -83,6 +84,80 @@ func TestErrorBody_JSONWithoutErrorKey(t *testing.T) {
 	// Falls back to raw JSON since there's no "error" key
 	if got != `{"message":"something went wrong"}` {
 		t.Errorf("expected raw JSON, got %q", got)
+	}
+}
+
+func TestBackoffForResponse_HonoursRetryAfter(t *testing.T) {
+	resp := &http.Response{
+		StatusCode: http.StatusTooManyRequests,
+		Header:     http.Header{"Retry-After": []string{"12"}},
+	}
+	// Retry-After is honoured exactly, regardless of attempt number.
+	if got := backoffForResponse(resp, 5); got != 12*time.Second {
+		t.Errorf("expected 12s from Retry-After, got %s", got)
+	}
+}
+
+func TestBackoffForResponse_ExponentialWithoutRetryAfter(t *testing.T) {
+	resp := &http.Response{StatusCode: http.StatusTooManyRequests, Header: http.Header{}}
+
+	first := backoffForResponse(resp, 0)
+	second := backoffForResponse(resp, 1)
+	if second <= first {
+		t.Errorf("expected backoff to grow: attempt0=%s attempt1=%s", first, second)
+	}
+	// Base is defaultRetryAfter at attempt 0.
+	if first < defaultRetryAfter {
+		t.Errorf("expected attempt0 >= base %s, got %s", defaultRetryAfter, first)
+	}
+}
+
+func TestExpBackoff_CapsAtMax(t *testing.T) {
+	// A large attempt number must never exceed maxBackoff (and must not overflow to <= 0).
+	if got := expBackoff(defaultRetryAfter, 40); got != maxBackoff {
+		t.Errorf("expected capped at %s, got %s", maxBackoff, got)
+	}
+}
+
+func TestDoRequest_RetriesThenSucceeds(t *testing.T) {
+	callCount := 0
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/api/oauth/token" {
+			w.Header().Set("Content-Type", "application/json")
+			if err := json.NewEncoder(w).Encode(tokenResponse{AccessToken: "t", ExpiresIn: 3600, TokenType: "bearer"}); err != nil {
+				t.Fatalf("failed to encode token: %v", err)
+			}
+			return
+		}
+
+		callCount++
+		if callCount < 3 {
+			// Retry-After: 0 keeps the test fast while still exercising the retry path.
+			w.Header().Set("Retry-After", "0")
+			w.WriteHeader(http.StatusTooManyRequests)
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+		if _, err := w.Write([]byte(`[]`)); err != nil {
+			t.Fatalf("failed to write response: %v", err)
+		}
+	}))
+	defer server.Close()
+
+	c := NewAikidoClient(server.URL, "id", "secret", RateLimitTierStandard)
+	c.SetRateLimitForTesting(1000)
+
+	resp, err := c.DoRequest(context.Background(), http.MethodGet, "/teams", nil)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	resp.Body.Close()
+
+	if callCount != 3 {
+		t.Errorf("expected 3 attempts (2 x 429 + 1 success), got %d", callCount)
+	}
+	if resp.StatusCode != http.StatusOK {
+		t.Errorf("expected final status 200, got %d", resp.StatusCode)
 	}
 }
 

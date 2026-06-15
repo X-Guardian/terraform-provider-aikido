@@ -35,17 +35,18 @@ type ContainerConfigResource struct {
 
 // ContainerConfigResourceModel describes the resource data model.
 type ContainerConfigResourceModel struct {
-	ID              types.String `tfsdk:"id"`
-	ContainerRepoID types.String `tfsdk:"container_repo_id"`
-	Active          types.Bool   `tfsdk:"active"`
-	Sensitivity     types.String `tfsdk:"sensitivity"`
-	InternetExposed types.String `tfsdk:"internet_exposed"`
-	TagFilter       types.String `tfsdk:"tag_filter"`
-	Name            types.String `tfsdk:"name"`
-	ProviderName    types.String `tfsdk:"provider_name"`
-	RegistryName    types.String `tfsdk:"registry_name"`
-	Tag             types.String `tfsdk:"tag"`
-	Distro          types.String `tfsdk:"distro"`
+	ID               types.String `tfsdk:"id"`
+	ContainerRepoID  types.String `tfsdk:"container_repo_id"`
+	Active           types.Bool   `tfsdk:"active"`
+	Sensitivity      types.String `tfsdk:"sensitivity"`
+	InternetExposed  types.String `tfsdk:"internet_exposed"`
+	TagFilter        types.String `tfsdk:"tag_filter"`
+	LinkedCodeRepoID types.String `tfsdk:"linked_code_repo_id"`
+	Name             types.String `tfsdk:"name"`
+	ProviderName     types.String `tfsdk:"provider_name"`
+	RegistryName     types.String `tfsdk:"registry_name"`
+	Tag              types.String `tfsdk:"tag"`
+	Distro           types.String `tfsdk:"distro"`
 }
 
 func (r *ContainerConfigResource) Metadata(ctx context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
@@ -92,6 +93,10 @@ func (r *ContainerConfigResource) Schema(ctx context.Context, req resource.Schem
 			"tag_filter": schema.StringAttribute{
 				Optional:            true,
 				MarkdownDescription: "Tag filter pattern for scanning. Supports wildcards (`*`) and `semver-production`. Empty string resets the filter.",
+			},
+			"linked_code_repo_id": schema.StringAttribute{
+				Optional:            true,
+				MarkdownDescription: "The ID of a code repository to link to this container.",
 			},
 			"name": schema.StringAttribute{
 				Computed:            true,
@@ -248,6 +253,29 @@ func (r *ContainerConfigResource) Update(ctx context.Context, req resource.Updat
 		}
 	}
 
+	if !plan.LinkedCodeRepoID.Equal(state.LinkedCodeRepoID) {
+		if plan.LinkedCodeRepoID.IsNull() {
+			if err := r.client.UnlinkCodeRepoFromContainer(ctx, containerID); err != nil {
+				resp.Diagnostics.AddError("Error Unlinking Code Repo", err.Error())
+				return
+			}
+		} else {
+			codeRepoID, err := strconv.Atoi(plan.LinkedCodeRepoID.ValueString())
+			if err != nil {
+				resp.Diagnostics.AddError("Invalid Linked Code Repo ID", fmt.Sprintf("Cannot parse linked_code_repo_id: %s", err))
+				return
+			}
+			if codeRepoID == 0 {
+				resp.Diagnostics.AddError("Invalid Linked Code Repo ID", "linked_code_repo_id must be a valid code repository ID; use null to leave the container unlinked.")
+				return
+			}
+			if err := r.client.LinkCodeRepoToContainer(ctx, containerID, codeRepoID); err != nil {
+				resp.Diagnostics.AddError("Error Linking Code Repo", err.Error())
+				return
+			}
+		}
+	}
+
 	// Read back full state.
 	container, err := r.client.GetContainer(ctx, containerID)
 	if err != nil {
@@ -325,6 +353,22 @@ func (r *ContainerConfigResource) applyConfig(ctx context.Context, containerID i
 			return
 		}
 	}
+
+	if !data.LinkedCodeRepoID.IsNull() {
+		codeRepoID, err := strconv.Atoi(data.LinkedCodeRepoID.ValueString())
+		if err != nil {
+			diags.AddError("Invalid Linked Code Repo ID", fmt.Sprintf("Cannot parse linked_code_repo_id: %s", err))
+			return
+		}
+		if codeRepoID == 0 {
+			diags.AddError("Invalid Linked Code Repo ID", "linked_code_repo_id must be a valid code repository ID; use null to leave the container unlinked.")
+			return
+		}
+		if err := r.client.LinkCodeRepoToContainer(ctx, containerID, codeRepoID); err != nil {
+			diags.AddError("Error Linking Code Repo", err.Error())
+			return
+		}
+	}
 }
 
 // mapContainerToModel populates the Terraform model from an API response.
@@ -340,5 +384,12 @@ func (r *ContainerConfigResource) mapContainerToModel(container *client.Containe
 		data.RegistryName = types.StringValue(*container.RegistryName)
 	} else {
 		data.RegistryName = types.StringNull()
+	}
+
+	// The API returns 0 (not null) when no code repo is linked; treat both as unlinked.
+	if container.LinkedCodeRepoID != nil && *container.LinkedCodeRepoID != 0 {
+		data.LinkedCodeRepoID = types.StringValue(strconv.Itoa(*container.LinkedCodeRepoID))
+	} else {
+		data.LinkedCodeRepoID = types.StringNull()
 	}
 }
