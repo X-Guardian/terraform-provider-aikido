@@ -265,6 +265,10 @@ func (r *ContainerConfigResource) Update(ctx context.Context, req resource.Updat
 				resp.Diagnostics.AddError("Invalid Linked Code Repo ID", fmt.Sprintf("Cannot parse linked_code_repo_id: %s", err))
 				return
 			}
+			if codeRepoID == 0 {
+				resp.Diagnostics.AddError("Invalid Linked Code Repo ID", "linked_code_repo_id must be a valid code repository ID; use null to leave the container unlinked.")
+				return
+			}
 			if err := r.client.LinkCodeRepoToContainer(ctx, containerID, codeRepoID); err != nil {
 				resp.Diagnostics.AddError("Error Linking Code Repo", err.Error())
 				return
@@ -356,6 +360,10 @@ func (r *ContainerConfigResource) applyConfig(ctx context.Context, containerID i
 			diags.AddError("Invalid Linked Code Repo ID", fmt.Sprintf("Cannot parse linked_code_repo_id: %s", err))
 			return
 		}
+		if codeRepoID == 0 {
+			diags.AddError("Invalid Linked Code Repo ID", "linked_code_repo_id must be a valid code repository ID; use null to leave the container unlinked.")
+			return
+		}
 		if err := r.client.LinkCodeRepoToContainer(ctx, containerID, codeRepoID); err != nil {
 			diags.AddError("Error Linking Code Repo", err.Error())
 			return
@@ -378,7 +386,8 @@ func (r *ContainerConfigResource) mapContainerToModel(container *client.Containe
 		data.RegistryName = types.StringNull()
 	}
 
-	if container.LinkedCodeRepoID != nil {
+	// The API returns 0 (not null) when no code repo is linked; treat both as unlinked.
+	if container.LinkedCodeRepoID != nil && *container.LinkedCodeRepoID != 0 {
 		data.LinkedCodeRepoID = types.StringValue(strconv.Itoa(*container.LinkedCodeRepoID))
 	} else {
 		data.LinkedCodeRepoID = types.StringNull()
