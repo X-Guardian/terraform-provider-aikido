@@ -10,4 +10,7 @@ resource "aikido_container_config" "my_app" {
   sensitivity       = "sensitive"
   internet_exposed  = "connected"
   tag_filter        = "v*"
+
+  # Optionally link a code repository to this container.
+  linked_code_repo_id = "67890"
 }

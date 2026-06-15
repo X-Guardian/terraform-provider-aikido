@@ -204,6 +204,43 @@ func (c *AikidoClient) UpdateContainerTagFilter(ctx context.Context, containerID
 	return nil
 }
 
+// LinkCodeRepoToContainer links a code repository to a container.
+func (c *AikidoClient) LinkCodeRepoToContainer(ctx context.Context, containerID, codeRepoID int) error {
+	body := map[string]int{
+		"container_repo_id": containerID,
+		"code_repo_id":      codeRepoID,
+	}
+
+	resp, err := c.DoRequest(ctx, http.MethodPost, "/containers/linkCodeRepo", body)
+	if err != nil {
+		return fmt.Errorf("linking code repo to container: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		respBody, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("unexpected status %d linking code repo to container: %s", resp.StatusCode, errorBody(respBody))
+	}
+
+	return nil
+}
+
+// UnlinkCodeRepoFromContainer removes the code repository link from a container.
+func (c *AikidoClient) UnlinkCodeRepoFromContainer(ctx context.Context, containerID int) error {
+	resp, err := c.DoRequest(ctx, http.MethodPost, "/containers/unlinkCodeRepo", map[string]int{"container_repo_id": containerID})
+	if err != nil {
+		return fmt.Errorf("unlinking code repo from container: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		respBody, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("unexpected status %d unlinking code repo from container: %s", resp.StatusCode, errorBody(respBody))
+	}
+
+	return nil
+}
+
 // getContainersPage fetches a single page of containers.
 func (c *AikidoClient) getContainersPage(ctx context.Context, params url.Values) ([]Container, error) {
 	resp, err := c.DoRequest(ctx, http.MethodGet, "/containers?"+params.Encode(), nil)

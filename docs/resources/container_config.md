@@ -25,6 +25,9 @@ resource "aikido_container_config" "my_app" {
   sensitivity       = "sensitive"
   internet_exposed  = "connected"
   tag_filter        = "v*"
+
+  # Optionally link a code repository to this container.
+  linked_code_repo_id = "67890"
 }
 ```
 
@@ -39,6 +42,7 @@ resource "aikido_container_config" "my_app" {
 
 - `active` (Boolean) Whether scanning is active for this container.
 - `internet_exposed` (String) The internet exposure status: `connected`, `not_connected`, or `unknown`.
+- `linked_code_repo_id` (String) The ID of a code repository to link to this container.
 - `sensitivity` (String) The sensitivity level: `extreme`, `sensitive`, `normal`, `not_sensitive`, or `no_data`.
 - `tag_filter` (String) Tag filter pattern for scanning. Supports wildcards (`*`) and `semver-production`. Empty string resets the filter.
 
