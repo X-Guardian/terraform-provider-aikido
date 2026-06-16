@@ -47,6 +47,7 @@ Read-Only:
 
 - `distro` (String) The OS distribution.
 - `id` (String) The unique identifier of the container.
+- `linked_code_repo_id` (String) The ID of the code repository linked to this container, or null if none is linked.
 - `name` (String) The name of the container repository.
 - `provider_name` (String) The registry provider (e.g., aws, gcp-artifact-registry, docker-hub).
 - `registry_name` (String) The name of the registry.
