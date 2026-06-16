@@ -44,7 +44,7 @@ resource "aikido_container_config" "my_app" {
 - `internet_exposed` (String) The internet exposure status: `connected`, `not_connected`, or `unknown`.
 - `linked_code_repo_id` (String) The ID of a code repository to link to this container.
 - `sensitivity` (String) The sensitivity level: `extreme`, `sensitive`, `normal`, `not_sensitive`, or `no_data`.
-- `tag_filter` (String) Tag filter pattern for scanning. Supports wildcards (`*`) and `semver-production`. Empty string resets the filter.
+- `tag_filter` (String) Tag filter pattern for scanning. Supports wildcards (`*`) and `semver-production`. Set to `null` (or omit) to scan the latest image.
 
 ### Read-Only
 

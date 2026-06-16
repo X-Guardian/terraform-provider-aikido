@@ -23,6 +23,24 @@ import (
 var _ resource.Resource = &ContainerConfigResource{}
 var _ resource.ResourceWithImportState = &ContainerConfigResource{}
 
+// emptyStringToNullModifier normalizes a configured empty string to null so that an empty tag_filter and an omitted
+// tag_filter are equivalent.
+type emptyStringToNullModifier struct{}
+
+func (m emptyStringToNullModifier) Description(context.Context) string {
+	return "Treats an empty string as null."
+}
+
+func (m emptyStringToNullModifier) MarkdownDescription(context.Context) string {
+	return "Treats an empty string as null."
+}
+
+func (m emptyStringToNullModifier) PlanModifyString(_ context.Context, req planmodifier.StringRequest, resp *planmodifier.StringResponse) {
+	if !req.ConfigValue.IsNull() && req.ConfigValue.ValueString() == "" {
+		resp.PlanValue = types.StringNull()
+	}
+}
+
 // NewContainerConfigResource creates a new container config resource.
 func NewContainerConfigResource() resource.Resource {
 	return &ContainerConfigResource{}
@@ -92,7 +110,10 @@ func (r *ContainerConfigResource) Schema(ctx context.Context, req resource.Schem
 			},
 			"tag_filter": schema.StringAttribute{
 				Optional:            true,
-				MarkdownDescription: "Tag filter pattern for scanning. Supports wildcards (`*`) and `semver-production`. Empty string resets the filter.",
+				MarkdownDescription: "Tag filter pattern for scanning. Supports wildcards (`*`) and `semver-production`. Set to `null` (or omit) to scan the latest image.",
+				PlanModifiers: []planmodifier.String{
+					emptyStringToNullModifier{},
+				},
 			},
 			"linked_code_repo_id": schema.StringAttribute{
 				Optional:            true,
@@ -153,8 +174,15 @@ func (r *ContainerConfigResource) Create(ctx context.Context, req resource.Creat
 		return
 	}
 
+	// Read the current container first. The tag filter is reflected back as the container's `tag` field.
+	current, err := r.client.GetContainer(ctx, containerID)
+	if err != nil {
+		resp.Diagnostics.AddError("Error Reading Container", fmt.Sprintf("Unable to read container before create: %s", err))
+		return
+	}
+
 	// Apply configured settings.
-	r.applyConfig(ctx, containerID, &data, &resp.Diagnostics)
+	r.applyConfig(ctx, containerID, &data, current, &resp.Diagnostics)
 	if resp.Diagnostics.HasError() {
 		return
 	}
@@ -246,7 +274,8 @@ func (r *ContainerConfigResource) Update(ctx context.Context, req resource.Updat
 		}
 	}
 
-	if !plan.TagFilter.IsNull() && !plan.TagFilter.Equal(state.TagFilter) {
+	// state.Tag holds the live tag filter from the last read. Skip the update when the desired filter already matches it
+	if !plan.TagFilter.IsNull() && !plan.TagFilter.Equal(state.TagFilter) && plan.TagFilter.ValueString() != state.Tag.ValueString() {
 		if err := r.client.UpdateContainerTagFilter(ctx, containerID, plan.TagFilter.ValueString()); err != nil {
 			resp.Diagnostics.AddError("Error Updating Tag Filter", err.Error())
 			return
@@ -317,8 +346,8 @@ func (r *ContainerConfigResource) ImportState(ctx context.Context, req resource.
 	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("container_repo_id"), req.ID)...)
 }
 
-// applyConfig applies configured settings during create.
-func (r *ContainerConfigResource) applyConfig(ctx context.Context, containerID int, data *ContainerConfigResourceModel, diags *diag.Diagnostics) {
+// applyConfig applies configured settings during create. Current is the container's state before any changes, used to skip no-op updates.
+func (r *ContainerConfigResource) applyConfig(ctx context.Context, containerID int, data *ContainerConfigResourceModel, current *client.ContainerDetail, diags *diag.Diagnostics) {
 	if !data.Active.IsNull() {
 		if data.Active.ValueBool() {
 			if err := r.client.ActivateContainer(ctx, containerID); err != nil {
@@ -347,7 +376,7 @@ func (r *ContainerConfigResource) applyConfig(ctx context.Context, containerID i
 		}
 	}
 
-	if !data.TagFilter.IsNull() {
+	if !data.TagFilter.IsNull() && data.TagFilter.ValueString() != current.Tag {
 		if err := r.client.UpdateContainerTagFilter(ctx, containerID, data.TagFilter.ValueString()); err != nil {
 			diags.AddError("Error Updating Tag Filter", err.Error())
 			return
@@ -379,6 +408,12 @@ func (r *ContainerConfigResource) mapContainerToModel(container *client.Containe
 	data.ProviderName = types.StringValue(container.Provider)
 	data.Tag = types.StringValue(container.Tag)
 	data.Distro = types.StringValue(container.Distro)
+
+	if container.Tag != "" {
+		data.TagFilter = types.StringValue(container.Tag)
+	} else {
+		data.TagFilter = types.StringNull()
+	}
 
 	if container.RegistryName != nil {
 		data.RegistryName = types.StringValue(*container.RegistryName)
