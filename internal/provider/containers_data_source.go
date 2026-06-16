@@ -37,12 +37,13 @@ type ContainersDataSourceModel struct {
 
 // ContainerDataSourceModel describes a single container.
 type ContainerDataSourceModel struct {
-	ID           types.String `tfsdk:"id"`
-	Name         types.String `tfsdk:"name"`
-	ProviderName types.String `tfsdk:"provider_name"`
-	RegistryName types.String `tfsdk:"registry_name"`
-	Tag          types.String `tfsdk:"tag"`
-	Distro       types.String `tfsdk:"distro"`
+	ID               types.String `tfsdk:"id"`
+	Name             types.String `tfsdk:"name"`
+	ProviderName     types.String `tfsdk:"provider_name"`
+	RegistryName     types.String `tfsdk:"registry_name"`
+	Tag              types.String `tfsdk:"tag"`
+	Distro           types.String `tfsdk:"distro"`
+	LinkedCodeRepoID types.String `tfsdk:"linked_code_repo_id"`
 }
 
 func (d *ContainersDataSource) Metadata(ctx context.Context, req datasource.MetadataRequest, resp *datasource.MetadataResponse) {
@@ -101,6 +102,10 @@ func (d *ContainersDataSource) Schema(ctx context.Context, req datasource.Schema
 						"distro": schema.StringAttribute{
 							Computed:            true,
 							MarkdownDescription: "The OS distribution.",
+						},
+						"linked_code_repo_id": schema.StringAttribute{
+							Computed:            true,
+							MarkdownDescription: "The ID of the code repository linked to this container, or null if none is linked.",
 						},
 					},
 				},
@@ -166,13 +171,19 @@ func (d *ContainersDataSource) Read(ctx context.Context, req datasource.ReadRequ
 		if c.RegistryName != nil {
 			registryName = *c.RegistryName
 		}
+		// The API returns 0 (not null) when no code repo is linked; treat both as unlinked.
+		linkedCodeRepoID := types.StringNull()
+		if c.LinkedCodeRepoID != nil && *c.LinkedCodeRepoID != 0 {
+			linkedCodeRepoID = types.StringValue(strconv.Itoa(*c.LinkedCodeRepoID))
+		}
 		data.Containers[i] = ContainerDataSourceModel{
-			ID:           types.StringValue(strconv.Itoa(c.ID)),
-			Name:         types.StringValue(c.Name),
-			ProviderName: types.StringValue(c.Provider),
-			RegistryName: types.StringValue(registryName),
-			Tag:          types.StringValue(c.Tag),
-			Distro:       types.StringValue(c.Distro),
+			ID:               types.StringValue(strconv.Itoa(c.ID)),
+			Name:             types.StringValue(c.Name),
+			ProviderName:     types.StringValue(c.Provider),
+			RegistryName:     types.StringValue(registryName),
+			Tag:              types.StringValue(c.Tag),
+			Distro:           types.StringValue(c.Distro),
+			LinkedCodeRepoID: linkedCodeRepoID,
 		}
 	}
 
