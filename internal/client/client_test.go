@@ -87,6 +87,23 @@ func TestErrorBody_JSONWithoutErrorKey(t *testing.T) {
 	}
 }
 
+func TestErrorBody_ReasonPhrase(t *testing.T) {
+	body := []byte(`{"reason_phrase":"AutoFix has been disabled for this workspace."}`)
+	got := errorBody(body)
+	expected := "AutoFix has been disabled for this workspace."
+	if got != expected {
+		t.Errorf("expected %q, got %q", expected, got)
+	}
+}
+
+func TestErrorBody_PrefersErrorOverReasonPhrase(t *testing.T) {
+	body := []byte(`{"error":"primary","reason_phrase":"secondary"}`)
+	got := errorBody(body)
+	if got != "primary" {
+		t.Errorf("expected 'primary', got %q", got)
+	}
+}
+
 func TestBackoffForResponse_HonoursRetryAfter(t *testing.T) {
 	resp := &http.Response{
 		StatusCode: http.StatusTooManyRequests,
