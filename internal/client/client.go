@@ -296,14 +296,21 @@ func expBackoff(base time.Duration, attempt int) time.Duration {
 }
 
 // errorBody reads an HTTP response body and returns a clean error string.
-// If the body is a JSON object with an "error" key, that value is returned.
+// If the body is a JSON object with an "error" or "reason_phrase" key, that value is
+// returned, preferring "error" when both are present.
 // Otherwise the raw body is returned as-is.
 func errorBody(body []byte) string {
 	var parsed struct {
-		Error string `json:"error"`
+		Error        string `json:"error"`
+		ReasonPhrase string `json:"reason_phrase"`
 	}
-	if json.Unmarshal(body, &parsed) == nil && parsed.Error != "" {
-		return parsed.Error
+	if json.Unmarshal(body, &parsed) == nil {
+		if parsed.Error != "" {
+			return parsed.Error
+		}
+		if parsed.ReasonPhrase != "" {
+			return parsed.ReasonPhrase
+		}
 	}
 	return string(body)
 }

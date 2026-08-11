@@ -23,6 +23,15 @@ The Aikido Terraform provider allows you to manage resources in [Aikido Security
 ### Code Repositories
 - `aikido_code_repo_config` — Manage scanning configuration (sensitivity, connectivity, excluded paths) of an existing code repository.
 
+### AutoFix
+Workspace-wide AutoFix pull request creation settings. Each is a singleton, so only one
+instance of each resource should exist. Destroying one disables that AutoFix feature for
+the whole workspace. Requires the `autofix:read` and `autofix:write` API scopes.
+
+- `aikido_autofix_dependency` — Manage dependency AutoFix PR creation settings.
+- `aikido_autofix_sast` — Manage SAST and IaC AutoFix PR creation settings.
+- `aikido_autofix_pentest` — Manage pentest and AI code analysis AutoFix PR creation settings.
+
 ### Containers
 - `aikido_container_config` — Manage scanning configuration (sensitivity, connectivity, tag filter) of an existing container repository.
 

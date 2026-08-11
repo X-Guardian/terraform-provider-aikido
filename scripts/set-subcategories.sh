@@ -31,6 +31,9 @@ resources|cloud_azure|Cloud
 resources|cloud_gcp|Cloud
 resources|cloud_kubernetes|Cloud
 resources|code_repo_config|Code Repositories
+resources|autofix_dependency|AutoFix
+resources|autofix_sast|AutoFix
+resources|autofix_pentest|AutoFix
 resources|container_config|Containers
 resources|domain|Domains
 resources|webhook|Webhooks
