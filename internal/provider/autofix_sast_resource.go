@@ -76,6 +76,11 @@ func (r *AutofixSastResource) Schema(ctx context.Context, req resource.SchemaReq
 						"all",
 					),
 				},
+				// Reuse state when omitted so a change to a sibling attribute does not plan
+				// this as unknown. The value is written from the plan, never derived by the API.
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"repos_scope": schema.StringAttribute{
 				Optional: true,
@@ -85,6 +90,9 @@ func (r *AutofixSastResource) Schema(ctx context.Context, req resource.SchemaReq
 				Validators: []validator.String{
 					stringvalidator.OneOf(autofixReposScopeAll, autofixReposScopeSelected),
 				},
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"repo_ids": schema.SetAttribute{
 				Optional:    true,
@@ -93,6 +101,9 @@ func (r *AutofixSastResource) Schema(ctx context.Context, req resource.SchemaReq
 				MarkdownDescription: "Code repository IDs that SAST and IaC AutoFix applies to. Required when `repos_scope` is " +
 					"`selected`, and must be omitted or empty when it is `all`. Repository IDs that are inactive or unknown to " +
 					"Aikido are silently filtered out by the API and are not reported as configuration drift.",
+				PlanModifiers: []planmodifier.Set{
+					repoIDsPlanModifier{},
+				},
 			},
 		},
 	}

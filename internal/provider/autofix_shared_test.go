@@ -4,6 +4,7 @@ import (
 	"context"
 	"testing"
 
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 )
 
@@ -127,6 +128,27 @@ func TestAutofixRepoIDsFromSet(t *testing.T) {
 	}
 	if len(ids) != 2 {
 		t.Fatalf("expected 2 IDs, got %v", ids)
+	}
+}
+
+// TestRepoIDsPlanModifier_LeavesKnownValuesAlone checks the modifier never overrides a
+// value the user configured; only unknown values are resolved.
+func TestRepoIDsPlanModifier_LeavesKnownValuesAlone(t *testing.T) {
+	ctx := context.Background()
+
+	configured, diags := autofixRepoIDsToSet(ctx, []int64{1, 2})
+	if diags.HasError() {
+		t.Fatalf("unexpected diagnostics: %v", diags)
+	}
+
+	resp := &planmodifier.SetResponse{PlanValue: configured}
+	repoIDsPlanModifier{}.PlanModifySet(ctx, planmodifier.SetRequest{}, resp)
+
+	if resp.Diagnostics.HasError() {
+		t.Fatalf("unexpected diagnostics: %v", resp.Diagnostics)
+	}
+	if len(resp.PlanValue.Elements()) != 2 {
+		t.Errorf("expected the configured value to be left alone, got %v", resp.PlanValue)
 	}
 }
 

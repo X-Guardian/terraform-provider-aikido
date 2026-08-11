@@ -5,6 +5,7 @@ import (
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
 	"github.com/hashicorp/terraform-plugin-testing/knownvalue"
+	"github.com/hashicorp/terraform-plugin-testing/plancheck"
 	"github.com/hashicorp/terraform-plugin-testing/statecheck"
 	"github.com/hashicorp/terraform-plugin-testing/tfjsonpath"
 )
@@ -51,6 +52,44 @@ func TestAccAutofixSastResource(t *testing.T) {
 				},
 			},
 			// Delete is implicit at the end of the test and disables autofix
+		},
+	})
+}
+
+// TestAccAutofixSastResource_ScopeTransitions covers the plan stability of the optional
+// and computed repo_ids attribute: changing a sibling attribute must not plan it as
+// "(known after apply)", and switching back to the "all" scope must reset it to empty
+// rather than reusing the previously selected IDs.
+func TestAccAutofixSastResource_ScopeTransitions(t *testing.T) {
+	resource.Test(t, resource.TestCase{
+		PreCheck:                 func() { testAccPreCheck(t) },
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			{
+				Config: testAccAutofixSastResourceConfig,
+				ConfigStateChecks: []statecheck.StateCheck{
+					statecheck.ExpectKnownValue("aikido_autofix_sast.test", tfjsonpath.New("repo_ids"), knownvalue.SetSizeExact(0)),
+				},
+			},
+			// Changing only severity_filter must leave repo_ids known and empty.
+			{
+				Config: testAccAutofixSastResourceConfigUpdated,
+				ConfigPlanChecks: resource.ConfigPlanChecks{
+					PreApply: []plancheck.PlanCheck{
+						plancheck.ExpectKnownValue("aikido_autofix_sast.test", tfjsonpath.New("repo_ids"), knownvalue.SetSizeExact(0)),
+					},
+				},
+				ConfigStateChecks: []statecheck.StateCheck{
+					statecheck.ExpectKnownValue("aikido_autofix_sast.test", tfjsonpath.New("repo_ids"), knownvalue.SetSizeExact(0)),
+				},
+			},
+			// Returning to the "all" scope with repo_ids omitted must reset it to empty.
+			{
+				Config: testAccAutofixSastResourceConfig,
+				ConfigStateChecks: []statecheck.StateCheck{
+					statecheck.ExpectKnownValue("aikido_autofix_sast.test", tfjsonpath.New("repo_ids"), knownvalue.SetSizeExact(0)),
+				},
+			},
 		},
 	})
 }

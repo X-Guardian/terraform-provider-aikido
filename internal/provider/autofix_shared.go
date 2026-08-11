@@ -8,6 +8,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 
 	"github.com/X-Guardian/terraform-provider-aikido/internal/client"
@@ -107,6 +108,62 @@ func autofixDisabledDiagnostic(diags *diag.Diagnostics, err error) bool {
 	)
 
 	return true
+}
+
+// repoIDsPlanModifier keeps an omitted repo_ids value stable in the plan.
+//
+// repo_ids is optional and computed, so leaving it out of the configuration makes it plan
+// as unknown as soon as any sibling attribute changes, which renders as a spurious
+// "[] -> (known after apply)" diff. Reusing the prior state value removes that, but it
+// cannot be done unconditionally: when repos_scope is "all" the value is always reset to
+// empty, so pinning a stale non-empty set would contradict the applied result.
+//
+// This is deliberately not stringplanmodifier.UseStateForUnknown: that modifier has no way
+// to consult repos_scope.
+type repoIDsPlanModifier struct{}
+
+var _ planmodifier.Set = repoIDsPlanModifier{}
+
+func (m repoIDsPlanModifier) Description(ctx context.Context) string {
+	return m.MarkdownDescription(ctx)
+}
+
+func (m repoIDsPlanModifier) MarkdownDescription(context.Context) string {
+	return "Keeps the prior `repo_ids` value when it is omitted, except under the `all` scope where it is always empty."
+}
+
+func (m repoIDsPlanModifier) PlanModifySet(ctx context.Context, req planmodifier.SetRequest, resp *planmodifier.SetResponse) {
+	// Only unknown values need resolving. A configured value always wins.
+	if !resp.PlanValue.IsUnknown() {
+		return
+	}
+
+	// On create there is no prior state to reuse, and on destroy there is nothing to plan.
+	if req.State.Raw.IsNull() || req.Plan.Raw.IsNull() {
+		return
+	}
+
+	var plannedScope types.String
+	resp.Diagnostics.Append(req.Plan.GetAttribute(ctx, path.Root("repos_scope"), &plannedScope)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	// Under the "all" scope the API ignores repo_ids and the resource stores an empty set,
+	// so plan that directly rather than reusing a possibly stale list.
+	if plannedScope.ValueString() == autofixReposScopeAll {
+		empty, diags := autofixRepoIDsToSet(ctx, []int64{})
+		resp.Diagnostics.Append(diags...)
+		if !resp.Diagnostics.HasError() {
+			resp.PlanValue = empty
+		}
+		return
+	}
+
+	// Otherwise reuse the prior value so an unrelated change does not show a false diff.
+	if !req.StateValue.IsNull() {
+		resp.PlanValue = req.StateValue
+	}
 }
 
 // errorsIsAutofixDisabled reports whether err is the workspace-level AutoFix disablement

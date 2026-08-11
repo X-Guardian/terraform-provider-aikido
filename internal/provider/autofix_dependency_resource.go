@@ -9,6 +9,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/boolplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
@@ -78,6 +79,11 @@ func (r *AutofixDependencyResource) Schema(ctx context.Context, req resource.Sch
 						"minor_and_patch_versions_only",
 					),
 				},
+				// Reuse state when omitted so a change to a sibling attribute does not plan
+				// this as unknown. The value is written from the plan, never derived by the API.
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"repos_scope": schema.StringAttribute{
 				Optional: true,
@@ -87,6 +93,9 @@ func (r *AutofixDependencyResource) Schema(ctx context.Context, req resource.Sch
 				Validators: []validator.String{
 					stringvalidator.OneOf(autofixReposScopeAll, autofixReposScopeSelected),
 				},
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"repo_ids": schema.SetAttribute{
 				Optional:    true,
@@ -95,6 +104,9 @@ func (r *AutofixDependencyResource) Schema(ctx context.Context, req resource.Sch
 				MarkdownDescription: "Code repository IDs that dependency AutoFix applies to. Required when `repos_scope` is " +
 					"`selected`, and must be omitted or empty when it is `all`. Repository IDs that are inactive or unknown to " +
 					"Aikido are silently filtered out by the API and are not reported as configuration drift.",
+				PlanModifiers: []planmodifier.Set{
+					repoIDsPlanModifier{},
+				},
 			},
 			"use_aikido_library_for_major": schema.BoolAttribute{
 				Optional: true,
@@ -102,6 +114,9 @@ func (r *AutofixDependencyResource) Schema(ctx context.Context, req resource.Sch
 				MarkdownDescription: "Whether Aikido Libraries are used to avoid major version upgrades where available. " +
 					"Required when `enabled` is `true`, and ignored by the API otherwise. Has no effect when `severity_filter` " +
 					"is `minor_and_patch_versions_only`, since that filter excludes major upgrades.",
+				PlanModifiers: []planmodifier.Bool{
+					boolplanmodifier.UseStateForUnknown(),
+				},
 			},
 		},
 	}
