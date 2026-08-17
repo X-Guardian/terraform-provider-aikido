@@ -2,15 +2,16 @@ package provider
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strconv"
-	"strings"
 
 	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/boolplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
@@ -92,18 +93,30 @@ func (r *ContainerConfigResource) Schema(ctx context.Context, req resource.Schem
 			},
 			"active": schema.BoolAttribute{
 				Optional:            true,
+				Computed:            true,
 				MarkdownDescription: "Whether scanning is active for this container.",
+				PlanModifiers: []planmodifier.Bool{
+					boolplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"sensitivity": schema.StringAttribute{
 				Optional:            true,
+				Computed:            true,
 				MarkdownDescription: "The sensitivity level: `extreme`, `sensitive`, `normal`, `not_sensitive`, or `no_data`.",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 				Validators: []validator.String{
 					stringvalidator.OneOf("extreme", "sensitive", "normal", "not_sensitive", "no_data"),
 				},
 			},
 			"internet_exposed": schema.StringAttribute{
 				Optional:            true,
+				Computed:            true,
 				MarkdownDescription: "The internet exposure status: `connected`, `not_connected`, or `unknown`.",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 				Validators: []validator.String{
 					stringvalidator.OneOf("connected", "not_connected", "unknown"),
 				},
@@ -119,25 +132,43 @@ func (r *ContainerConfigResource) Schema(ctx context.Context, req resource.Schem
 				Optional:            true,
 				MarkdownDescription: "The ID of a code repository to link to this container.",
 			},
+			// These attributes describe the container itself rather than its configuration, so this
+			// resource never changes them. Without UseStateForUnknown they would each plan as
+			// "(known after apply)" whenever any other attribute changes, burying the real diff.
 			"name": schema.StringAttribute{
 				Computed:            true,
 				MarkdownDescription: "The name of the container repository.",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"provider_name": schema.StringAttribute{
 				Computed:            true,
 				MarkdownDescription: "The registry provider.",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"registry_name": schema.StringAttribute{
 				Computed:            true,
 				MarkdownDescription: "The name of the registry.",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"tag": schema.StringAttribute{
 				Computed:            true,
 				MarkdownDescription: "The current tag being scanned.",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"distro": schema.StringAttribute{
 				Computed:            true,
 				MarkdownDescription: "The OS distribution.",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 		},
 	}
@@ -187,14 +218,16 @@ func (r *ContainerConfigResource) Create(ctx context.Context, req resource.Creat
 		return
 	}
 
-	// Read back full state.
-	container, err := r.client.GetContainer(ctx, containerID)
+	// Read back full state. The list endpoint is used because it is the only one that returns
+	// sensitivity and connectivity, which must be known once the apply completes. The name from
+	// the pre-read narrows the search.
+	container, err := r.client.FindContainer(ctx, containerID, current.Name)
 	if err != nil {
 		resp.Diagnostics.AddError("Error Reading Container", fmt.Sprintf("Unable to read container after create: %s", err))
 		return
 	}
 
-	r.mapContainerToModel(container, &data)
+	r.mapListContainerToModel(container, &data)
 
 	tflog.Debug(ctx, "created container config", map[string]interface{}{"id": containerID})
 
@@ -215,9 +248,11 @@ func (r *ContainerConfigResource) Read(ctx context.Context, req resource.ReadReq
 		return
 	}
 
-	container, err := r.client.GetContainer(ctx, containerID)
+	// The name in state narrows the search. It is null on the first read after an import, in which
+	// case the client falls back to scanning every page.
+	container, err := r.client.FindContainer(ctx, containerID, data.Name.ValueString())
 	if err != nil {
-		if strings.Contains(err.Error(), "not found") {
+		if errors.Is(err, client.ErrContainerNotFound) {
 			resp.State.RemoveResource(ctx)
 			tflog.Warn(ctx, "container not found, removing from state", map[string]interface{}{"id": containerID})
 			return
@@ -226,7 +261,7 @@ func (r *ContainerConfigResource) Read(ctx context.Context, req resource.ReadReq
 		return
 	}
 
-	r.mapContainerToModel(container, &data)
+	r.mapListContainerToModel(container, &data)
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
@@ -305,14 +340,15 @@ func (r *ContainerConfigResource) Update(ctx context.Context, req resource.Updat
 		}
 	}
 
-	// Read back full state.
-	container, err := r.client.GetContainer(ctx, containerID)
+	// Read back full state. See Create for why the list endpoint is used. The name comes from state
+	// rather than the plan, where it is computed and may still be unknown.
+	container, err := r.client.FindContainer(ctx, containerID, state.Name.ValueString())
 	if err != nil {
 		resp.Diagnostics.AddError("Error Reading Container", fmt.Sprintf("Unable to read container after update: %s", err))
 		return
 	}
 
-	r.mapContainerToModel(container, &plan)
+	r.mapListContainerToModel(container, &plan)
 
 	tflog.Debug(ctx, "updated container config", map[string]interface{}{"id": containerID})
 
@@ -400,14 +436,18 @@ func (r *ContainerConfigResource) applyConfig(ctx context.Context, containerID i
 	}
 }
 
-// mapContainerToModel populates the Terraform model from an API response.
-func (r *ContainerConfigResource) mapContainerToModel(container *client.ContainerDetail, data *ContainerConfigResourceModel) {
+// mapListContainerToModel populates the Terraform model from a list API response.
+//
+// The list endpoint is used for every read because it is the only one that returns the
+// sensitivity and connectivity fields; GET /containers/{id} omits them.
+func (r *ContainerConfigResource) mapListContainerToModel(container *client.Container, data *ContainerConfigResourceModel) {
 	data.ID = types.StringValue(strconv.Itoa(container.ID))
 	data.ContainerRepoID = types.StringValue(strconv.Itoa(container.ID))
 	data.Name = types.StringValue(container.Name)
 	data.ProviderName = types.StringValue(container.Provider)
 	data.Tag = types.StringValue(container.Tag)
 	data.Distro = types.StringValue(container.Distro)
+	data.Active = types.BoolValue(container.IsActive)
 
 	if container.Tag != "" {
 		data.TagFilter = types.StringValue(container.Tag)
@@ -419,6 +459,15 @@ func (r *ContainerConfigResource) mapContainerToModel(container *client.Containe
 		data.RegistryName = types.StringValue(*container.RegistryName)
 	} else {
 		data.RegistryName = types.StringNull()
+	}
+
+	// Sensitivity and connectivity are only present when the request asked for them. Leaving the
+	// prior value untouched otherwise avoids reporting a spurious change to null.
+	if container.Sensitivity != nil {
+		data.Sensitivity = types.StringValue(*container.Sensitivity)
+	}
+	if container.Connectivity != nil {
+		data.InternetExposed = types.StringValue(*container.Connectivity)
 	}
 
 	// The API returns 0 (not null) when no code repo is linked; treat both as unlinked.

@@ -80,12 +80,13 @@ type AikidoClient struct {
 	ClientSecret string
 	HTTPClient   *http.Client
 
-	mu          sync.Mutex
-	accessToken string
-	tokenExpiry time.Time
-	limiter     *rate.Limiter
-	usersCache  *usersCache
-	teamsCache  *teamsCache
+	mu              sync.Mutex
+	accessToken     string
+	tokenExpiry     time.Time
+	limiter         *rate.Limiter
+	usersCache      *usersCache
+	teamsCache      *teamsCache
+	containersCache *containersCache
 }
 
 type tokenResponse struct {
@@ -104,6 +105,10 @@ func NewAikidoClient(baseURL, clientID, clientSecret string, tier RateLimitTier)
 		limiter:      newLimiterForTier(tier),
 		usersCache:   newUsersCache(5 * time.Minute),
 		teamsCache:   newTeamsCache(5 * time.Minute),
+		// Containers use a shorter TTL than the other caches because the same values are also
+		// written by this provider. Every write invalidates the cache, so the TTL only bounds how
+		// stale an out-of-band change can be within a single plan or apply.
+		containersCache: newContainersCache(30 * time.Second),
 	}
 }
 

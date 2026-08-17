@@ -236,3 +236,106 @@ func (c *teamsCache) invalidate(ctx context.Context) {
 		tflog.Debug(ctx, "teams cache invalidated", nil)
 	}
 }
+
+// containersCache holds the full container list for a short TTL, indexed by ID.
+//
+// Reading a single container's configuration requires the list endpoint, because GET
+// /containers/{id} omits the sensitivity and connectivity fields. Without a cache, refreshing N
+// container resources costs N paginated scans of the same data; sharing one listing reduces that
+// to a single scan for the whole operation.
+type containersCache struct {
+	ttl   time.Duration
+	sf    singleflight.Group
+	mu    sync.RWMutex
+	entry *containersCacheEntry
+}
+
+type containersCacheEntry struct {
+	containers     []Container
+	containersByID map[int]*Container
+	expires        time.Time
+}
+
+func newContainersCache(ttl time.Duration) *containersCache {
+	return &containersCache{ttl: ttl}
+}
+
+const containersCacheKey = "all"
+
+func (c *containersCache) get() (*containersCacheEntry, bool) {
+	c.mu.RLock()
+	entry := c.entry
+	c.mu.RUnlock()
+	if entry == nil || time.Now().After(entry.expires) {
+		return nil, false
+	}
+	return entry, true
+}
+
+func (c *containersCache) put(containers []Container) *containersCacheEntry {
+	byID := make(map[int]*Container, len(containers))
+	for i := range containers {
+		byID[containers[i].ID] = &containers[i]
+	}
+	entry := &containersCacheEntry{
+		containers:     containers,
+		containersByID: byID,
+		expires:        time.Now().Add(c.ttl),
+	}
+	c.mu.Lock()
+	c.entry = entry
+	c.mu.Unlock()
+	return entry
+}
+
+// getOrFetch returns a fresh cached entry if available, otherwise invokes
+// loader through singleflight so concurrent callers share one fetch.
+func (c *containersCache) getOrFetch(ctx context.Context, loader func() ([]Container, error)) (*containersCacheEntry, error) {
+	if entry, ok := c.get(); ok {
+		tflog.Debug(ctx, "containers cache hit", map[string]interface{}{
+			"container_count": len(entry.containers),
+			"expires_in":      time.Until(entry.expires).String(),
+		})
+		return entry, nil
+	}
+	v, err, shared := c.sf.Do(containersCacheKey, func() (any, error) {
+		if entry, ok := c.get(); ok {
+			return entry, nil
+		}
+		tflog.Debug(ctx, "containers cache miss, fetching", nil)
+		start := time.Now()
+		containers, err := loader()
+		if err != nil {
+			return nil, err
+		}
+		entry := c.put(containers)
+		tflog.Debug(ctx, "containers cache populated", map[string]interface{}{
+			"container_count": len(containers),
+			"fetch_ms":        time.Since(start).Milliseconds(),
+		})
+		return entry, nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	if shared {
+		tflog.Debug(ctx, "containers cache fetch coalesced via singleflight", nil)
+	}
+	entry, ok := v.(*containersCacheEntry)
+	if !ok {
+		return nil, fmt.Errorf("containers cache: unexpected singleflight value type %T", v)
+	}
+	return entry, nil
+}
+
+// invalidate drops the cached container list. Called after every write that changes a
+// container's configuration, so a read-back never serves pre-write state.
+func (c *containersCache) invalidate(ctx context.Context) {
+	c.mu.Lock()
+	had := c.entry != nil
+	c.entry = nil
+	c.mu.Unlock()
+	if had {
+		tflog.Debug(ctx, "containers cache invalidated", nil)
+	}
+}

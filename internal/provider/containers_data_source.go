@@ -28,22 +28,37 @@ type ContainersDataSource struct {
 
 // ContainersDataSourceModel describes the data source data model.
 type ContainersDataSourceModel struct {
-	FilterName   types.String               `tfsdk:"filter_name"`
-	FilterTag    types.String               `tfsdk:"filter_tag"`
-	FilterTeamID types.String               `tfsdk:"filter_team_id"`
-	FilterStatus types.String               `tfsdk:"filter_status"`
-	Containers   []ContainerDataSourceModel `tfsdk:"containers"`
+	FilterName         types.String               `tfsdk:"filter_name"`
+	FilterTag          types.String               `tfsdk:"filter_tag"`
+	FilterTeamID       types.String               `tfsdk:"filter_team_id"`
+	FilterStatus       types.String               `tfsdk:"filter_status"`
+	FilterReachability types.String               `tfsdk:"filter_reachability"`
+	Containers         []ContainerDataSourceModel `tfsdk:"containers"`
 }
 
 // ContainerDataSourceModel describes a single container.
 type ContainerDataSourceModel struct {
-	ID               types.String `tfsdk:"id"`
-	Name             types.String `tfsdk:"name"`
-	ProviderName     types.String `tfsdk:"provider_name"`
-	RegistryName     types.String `tfsdk:"registry_name"`
-	Tag              types.String `tfsdk:"tag"`
-	Distro           types.String `tfsdk:"distro"`
-	LinkedCodeRepoID types.String `tfsdk:"linked_code_repo_id"`
+	ID               types.String                    `tfsdk:"id"`
+	Name             types.String                    `tfsdk:"name"`
+	ProviderName     types.String                    `tfsdk:"provider_name"`
+	RegistryName     types.String                    `tfsdk:"registry_name"`
+	Tag              types.String                    `tfsdk:"tag"`
+	Distro           types.String                    `tfsdk:"distro"`
+	LinkedCodeRepoID types.String                    `tfsdk:"linked_code_repo_id"`
+	Active           types.Bool                      `tfsdk:"active"`
+	Sensitivity      types.String                    `tfsdk:"sensitivity"`
+	InternetExposed  types.String                    `tfsdk:"internet_exposed"`
+	IsRunning        types.Bool                      `tfsdk:"is_running"`
+	IsEmpty          types.Bool                      `tfsdk:"is_empty"`
+	ExposedVia       types.String                    `tfsdk:"exposed_via"`
+	Labels           []ContainerLabelDataSourceModel `tfsdk:"labels"`
+}
+
+// ContainerLabelDataSourceModel describes a single label on a container.
+type ContainerLabelDataSourceModel struct {
+	ID         types.String `tfsdk:"id"`
+	Name       types.String `tfsdk:"name"`
+	IsImported types.Bool   `tfsdk:"is_imported"`
 }
 
 func (d *ContainersDataSource) Metadata(ctx context.Context, req datasource.MetadataRequest, resp *datasource.MetadataResponse) {
@@ -72,6 +87,13 @@ func (d *ContainersDataSource) Schema(ctx context.Context, req datasource.Schema
 				MarkdownDescription: "Filter by status: `active` (default), `inactive`, or `all`.",
 				Validators: []validator.String{
 					stringvalidator.OneOf("active", "inactive", "all"),
+				},
+			},
+			"filter_reachability": schema.StringAttribute{
+				Optional:            true,
+				MarkdownDescription: "Filter containers by how their running images are reachable from the internet: `unknown`, `direct`, `lb`, `limited_ips`, or `none`.",
+				Validators: []validator.String{
+					stringvalidator.OneOf("unknown", "direct", "lb", "limited_ips", "none"),
 				},
 			},
 			"containers": schema.ListNestedAttribute{
@@ -107,6 +129,50 @@ func (d *ContainersDataSource) Schema(ctx context.Context, req datasource.Schema
 							Computed:            true,
 							MarkdownDescription: "The ID of the code repository linked to this container, or null if none is linked.",
 						},
+						"active": schema.BoolAttribute{
+							Computed:            true,
+							MarkdownDescription: "Whether the container is being scanned by Aikido.",
+						},
+						"sensitivity": schema.StringAttribute{
+							Computed:            true,
+							MarkdownDescription: "The sensitivity level: `extreme`, `sensitive`, `normal`, `not_sensitive`, or `no_data`.",
+						},
+						"internet_exposed": schema.StringAttribute{
+							Computed:            true,
+							MarkdownDescription: "The internet exposure status: `connected`, `not_connected`, or `unknown`.",
+						},
+						"is_running": schema.BoolAttribute{
+							Computed:            true,
+							MarkdownDescription: "Whether the container is currently running anywhere.",
+						},
+						"is_empty": schema.BoolAttribute{
+							Computed:            true,
+							MarkdownDescription: "Whether the container repository has no image pushed to it.",
+						},
+						"exposed_via": schema.StringAttribute{
+							Computed:            true,
+							MarkdownDescription: "How the running container image is reachable from the internet: `direct`, `lb` and `limited_ips` mean reachable, `none` means not reachable, and `unknown` means reachability could not be determined.",
+						},
+						"labels": schema.ListNestedAttribute{
+							Computed:            true,
+							MarkdownDescription: "The labels attached to this container.",
+							NestedObject: schema.NestedAttributeObject{
+								Attributes: map[string]schema.Attribute{
+									"id": schema.StringAttribute{
+										Computed:            true,
+										MarkdownDescription: "The unique identifier of the label.",
+									},
+									"name": schema.StringAttribute{
+										Computed:            true,
+										MarkdownDescription: "The name of the label.",
+									},
+									"is_imported": schema.BoolAttribute{
+										Computed:            true,
+										MarkdownDescription: "Whether the label was imported from the container's registry.",
+									},
+								},
+							},
+						},
 					},
 				},
 			},
@@ -139,7 +205,14 @@ func (d *ContainersDataSource) Read(ctx context.Context, req datasource.ReadRequ
 		return
 	}
 
-	opts := &client.ListContainersOptions{}
+	// The include options are always set so that every advertised attribute is populated; the API
+	// omits these fields unless asked for them.
+	opts := &client.ListContainersOptions{
+		IncludeIsRunning:    true,
+		IncludeSensitivity:  true,
+		IncludeConnectivity: true,
+		IncludeLabels:       true,
+	}
 
 	if !data.FilterName.IsNull() {
 		opts.FilterName = data.FilterName.ValueString()
@@ -157,6 +230,9 @@ func (d *ContainersDataSource) Read(ctx context.Context, req datasource.ReadRequ
 	}
 	if !data.FilterStatus.IsNull() {
 		opts.FilterStatus = data.FilterStatus.ValueString()
+	}
+	if !data.FilterReachability.IsNull() {
+		opts.FilterReachability = data.FilterReachability.ValueString()
 	}
 
 	containers, err := d.client.ListContainers(ctx, opts)
@@ -176,6 +252,30 @@ func (d *ContainersDataSource) Read(ctx context.Context, req datasource.ReadRequ
 		if c.LinkedCodeRepoID != nil && *c.LinkedCodeRepoID != 0 {
 			linkedCodeRepoID = types.StringValue(strconv.Itoa(*c.LinkedCodeRepoID))
 		}
+		labels := make([]ContainerLabelDataSourceModel, len(c.Labels))
+		for j, l := range c.Labels {
+			labels[j] = ContainerLabelDataSourceModel{
+				ID:         types.StringValue(strconv.Itoa(l.ID)),
+				Name:       types.StringValue(l.Name),
+				IsImported: types.BoolValue(l.IsImported),
+			}
+		}
+
+		// These fields are requested unconditionally, but a container the API declines to report
+		// them for still has to yield a null rather than a misleading zero value.
+		sensitivity := types.StringNull()
+		if c.Sensitivity != nil {
+			sensitivity = types.StringValue(*c.Sensitivity)
+		}
+		internetExposed := types.StringNull()
+		if c.Connectivity != nil {
+			internetExposed = types.StringValue(*c.Connectivity)
+		}
+		isRunning := types.BoolNull()
+		if c.IsRunning != nil {
+			isRunning = types.BoolValue(*c.IsRunning)
+		}
+
 		data.Containers[i] = ContainerDataSourceModel{
 			ID:               types.StringValue(strconv.Itoa(c.ID)),
 			Name:             types.StringValue(c.Name),
@@ -184,6 +284,13 @@ func (d *ContainersDataSource) Read(ctx context.Context, req datasource.ReadRequ
 			Tag:              types.StringValue(c.Tag),
 			Distro:           types.StringValue(c.Distro),
 			LinkedCodeRepoID: linkedCodeRepoID,
+			Active:           types.BoolValue(c.IsActive),
+			Sensitivity:      sensitivity,
+			InternetExposed:  internetExposed,
+			IsRunning:        isRunning,
+			IsEmpty:          types.BoolValue(c.IsEmpty),
+			ExposedVia:       types.StringValue(c.ExposedVia),
+			Labels:           labels,
 		}
 	}
 

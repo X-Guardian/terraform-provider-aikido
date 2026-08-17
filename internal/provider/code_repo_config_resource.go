@@ -116,21 +116,36 @@ func (r *CodeRepoConfigResource) Schema(ctx context.Context, req resource.Schema
 					setplanmodifier.UseStateForUnknown(),
 				},
 			},
+			// These attributes describe the repository itself rather than its configuration, so this
+			// resource never changes them. Without UseStateForUnknown they would each plan as
+			// "(known after apply)" whenever any other attribute changes, burying the real diff.
 			"name": schema.StringAttribute{
 				Computed:            true,
 				MarkdownDescription: "The name of the code repository.",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"provider_name": schema.StringAttribute{
 				Computed:            true,
 				MarkdownDescription: "The Git provider (e.g., github, gitlab, bitbucket).",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"branch": schema.StringAttribute{
 				Computed:            true,
 				MarkdownDescription: "The branch being scanned.",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"url": schema.StringAttribute{
 				Computed:            true,
 				MarkdownDescription: "The URL of the repository.",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 		},
 	}
