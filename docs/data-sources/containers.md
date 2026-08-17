@@ -32,6 +32,7 @@ data "aikido_containers" "everything" {
 ### Optional
 
 - `filter_name` (String) Filter containers by name.
+- `filter_reachability` (String) Filter containers by how their running images are reachable from the internet: `unknown`, `direct`, `lb`, `limited_ips`, or `none`.
 - `filter_status` (String) Filter by status: `active` (default), `inactive`, or `all`.
 - `filter_tag` (String) Filter containers by tag.
 - `filter_team_id` (String) Filter containers by team ID.
@@ -45,10 +46,26 @@ data "aikido_containers" "everything" {
 
 Read-Only:
 
+- `active` (Boolean) Whether the container is being scanned by Aikido.
 - `distro` (String) The OS distribution.
+- `exposed_via` (String) How the running container image is reachable from the internet: `direct`, `lb` and `limited_ips` mean reachable, `none` means not reachable, and `unknown` means reachability could not be determined.
 - `id` (String) The unique identifier of the container.
+- `internet_exposed` (String) The internet exposure status: `connected`, `not_connected`, or `unknown`.
+- `is_empty` (Boolean) Whether the container repository has no image pushed to it.
+- `is_running` (Boolean) Whether the container is currently running anywhere.
+- `labels` (Attributes List) The labels attached to this container. (see [below for nested schema](#nestedatt--containers--labels))
 - `linked_code_repo_id` (String) The ID of the code repository linked to this container, or null if none is linked.
 - `name` (String) The name of the container repository.
 - `provider_name` (String) The registry provider (e.g., aws, gcp-artifact-registry, docker-hub).
 - `registry_name` (String) The name of the registry.
+- `sensitivity` (String) The sensitivity level: `extreme`, `sensitive`, `normal`, `not_sensitive`, or `no_data`.
 - `tag` (String) The tag filter for image selection.
+
+<a id="nestedatt--containers--labels"></a>
+### Nested Schema for `containers.labels`
+
+Read-Only:
+
+- `id` (String) The unique identifier of the label.
+- `is_imported` (Boolean) Whether the label was imported from the container's registry.
+- `name` (String) The name of the label.
