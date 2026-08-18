@@ -3,7 +3,6 @@
 [![GitHub release (latest by date)][release-badge]][releases]
 [![Terraform Downloads][downloads-badge]][registry]
 [![Tests][tests-badge]][tests]
-[![Go Report Card][report-badge]][report]
 [![License: MPL-2.0][license-badge]][license]
 
 The Aikido Terraform provider allows you to manage resources in [Aikido Security][aikido] via the [management API][api-docs].
@@ -180,8 +179,6 @@ make testacc
 [registry]: https://registry.terraform.io/providers/X-Guardian/aikido/latest
 [tests-badge]: https://github.com/X-Guardian/terraform-provider-aikido/actions/workflows/test.yml/badge.svg
 [tests]: https://github.com/X-Guardian/terraform-provider-aikido/actions/workflows/test.yml
-[report-badge]: https://goreportcard.com/badge/github.com/X-Guardian/terraform-provider-aikido
-[report]: https://goreportcard.com/report/github.com/X-Guardian/terraform-provider-aikido
 [license-badge]: https://img.shields.io/badge/License-MPL_2.0-yellow.svg
 [license]: https://opensource.org/licenses/MPL-2.0
 [aikido]: https://www.aikido.dev/
