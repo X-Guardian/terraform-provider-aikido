@@ -107,7 +107,7 @@ func TestAutofixRepoIDsFromSet(t *testing.T) {
 	ctx := context.Background()
 
 	// A null set must produce an empty slice, never nil, so the JSON payload is [].
-	ids, diags := autofixRepoIDsFromSet(ctx, types.SetNull(types.Int64Type))
+	ids, diags := autofixRepoIDsFromSet(ctx, types.SetNull(types.StringType))
 	if diags.HasError() {
 		t.Fatalf("unexpected diagnostics: %v", diags)
 	}
@@ -118,6 +118,7 @@ func TestAutofixRepoIDsFromSet(t *testing.T) {
 		t.Errorf("expected an empty slice, got %v", ids)
 	}
 
+	// The set holds strings, so a round trip must recover the original integers.
 	set, d := autofixRepoIDsToSet(ctx, []int64{4, 5})
 	if d.HasError() {
 		t.Fatalf("unexpected diagnostics: %v", d)
@@ -128,6 +129,30 @@ func TestAutofixRepoIDsFromSet(t *testing.T) {
 	}
 	if len(ids) != 2 {
 		t.Fatalf("expected 2 IDs, got %v", ids)
+	}
+	got := map[int64]bool{ids[0]: true, ids[1]: true}
+	if !got[4] || !got[5] {
+		t.Errorf("expected the round trip to recover 4 and 5, got %v", ids)
+	}
+}
+
+// TestAutofixRepoIDsFromSet_NonNumericIsReported checks a non-numeric ID fails with a
+// diagnostic rather than being silently dropped or sent to the API as garbage.
+func TestAutofixRepoIDsFromSet_NonNumericIsReported(t *testing.T) {
+	ctx := context.Background()
+
+	set, d := types.SetValueFrom(ctx, types.StringType, []string{"123", "not-a-number"})
+	if d.HasError() {
+		t.Fatalf("unexpected diagnostics building the set: %v", d)
+	}
+
+	ids, diags := autofixRepoIDsFromSet(ctx, set)
+	if !diags.HasError() {
+		t.Fatal("expected a diagnostic for the non-numeric ID, got none")
+	}
+	// The valid ID is still parsed, so the diagnostic is the only signal of the bad one.
+	if len(ids) != 1 || ids[0] != 123 {
+		t.Errorf("expected the valid ID to be kept, got %v", ids)
 	}
 }
 

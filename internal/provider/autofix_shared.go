@@ -4,11 +4,16 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"regexp"
+	"strconv"
 
+	"github.com/hashicorp/terraform-plugin-framework-validators/setvalidator"
+	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 
 	"github.com/X-Guardian/terraform-provider-aikido/internal/client"
@@ -31,6 +36,22 @@ const (
 	autofixReposScopeSelected = "selected"
 )
 
+// autofixRepoIDValidators rejects a non-numeric repo_ids element at plan time.
+//
+// The IDs are surfaced as strings so they compose with the other ID attributes, which means
+// the schema no longer rejects a non-numeric value on its own. Without this the value would
+// reach autofixRepoIDsFromSet during apply and fail there, long after the plan looked clean.
+func autofixRepoIDValidators() []validator.Set {
+	return []validator.Set{
+		setvalidator.ValueStringsAre(
+			stringvalidator.RegexMatches(
+				regexp.MustCompile(`^\d+$`),
+				"must be a numeric code repository ID",
+			),
+		),
+	}
+}
+
 // autofixSeverityToModel converts an API severity filter into a model value, mapping the
 // read-only "none" sentinel to null so it never reaches state or a plan.
 func autofixSeverityToModel(severity string) types.String {
@@ -42,15 +63,24 @@ func autofixSeverityToModel(severity string) types.String {
 
 // autofixRepoIDsToSet converts API repository IDs into a set value. A nil slice becomes
 // an empty set rather than null, so a managed resource always holds a concrete set.
+//
+// The IDs are surfaced as strings even though the API sends integers, so that repo_ids
+// composes directly with the aikido_code_repos data source and with every other ID
+// attribute in the provider. The conversion lives here rather than in the schema.
 func autofixRepoIDsToSet(ctx context.Context, ids []int64) (types.Set, diag.Diagnostics) {
-	if ids == nil {
-		ids = []int64{}
+	strs := make([]string, len(ids))
+	for i, id := range ids {
+		strs[i] = strconv.FormatInt(id, 10)
 	}
-	return types.SetValueFrom(ctx, types.Int64Type, ids)
+	return types.SetValueFrom(ctx, types.StringType, strs)
 }
 
 // autofixRepoIDsFromSet converts a set value into API repository IDs. Null and unknown
 // sets become an empty slice, never nil, so the request payload carries an empty array.
+//
+// The set holds strings (see autofixRepoIDsToSet), so each element is parsed back to the
+// integer the API expects. A non-numeric ID is a configuration error rather than an API
+// failure, so it is reported against the attribute with the value that failed.
 func autofixRepoIDsFromSet(ctx context.Context, set types.Set) ([]int64, diag.Diagnostics) {
 	var diags diag.Diagnostics
 
@@ -58,8 +88,25 @@ func autofixRepoIDsFromSet(ctx context.Context, set types.Set) ([]int64, diag.Di
 		return []int64{}, diags
 	}
 
-	ids := []int64{}
-	diags.Append(set.ElementsAs(ctx, &ids, false)...)
+	strs := []string{}
+	diags.Append(set.ElementsAs(ctx, &strs, false)...)
+	if diags.HasError() {
+		return []int64{}, diags
+	}
+
+	ids := make([]int64, 0, len(strs))
+	for _, s := range strs {
+		id, err := strconv.ParseInt(s, 10, 64)
+		if err != nil {
+			diags.AddAttributeError(
+				path.Root("repo_ids"),
+				"Invalid Repository ID",
+				fmt.Sprintf("Expected a numeric code repository ID, got %q.", s),
+			)
+			continue
+		}
+		ids = append(ids, id)
+	}
 
 	return ids, diags
 }

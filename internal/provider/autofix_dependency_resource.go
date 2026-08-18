@@ -100,10 +100,11 @@ func (r *AutofixDependencyResource) Schema(ctx context.Context, req resource.Sch
 			"repo_ids": schema.SetAttribute{
 				Optional:    true,
 				Computed:    true,
-				ElementType: types.Int64Type,
+				ElementType: types.StringType,
 				MarkdownDescription: "Code repository IDs that dependency AutoFix applies to. Required when `repos_scope` is " +
 					"`selected`, and must be omitted or empty when it is `all`. Repository IDs that are inactive or unknown to " +
 					"Aikido are silently filtered out by the API and are not reported as configuration drift.",
+				Validators: autofixRepoIDValidators(),
 				PlanModifiers: []planmodifier.Set{
 					repoIDsPlanModifier{},
 				},
