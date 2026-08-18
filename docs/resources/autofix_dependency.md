@@ -57,7 +57,7 @@ resource "aikido_autofix_dependency" "this" {
 
 ### Optional
 
-- `repo_ids` (Set of Number) Code repository IDs that dependency AutoFix applies to. Required when `repos_scope` is `selected`, and must be omitted or empty when it is `all`. Repository IDs that are inactive or unknown to Aikido are silently filtered out by the API and are not reported as configuration drift.
+- `repo_ids` (Set of String) Code repository IDs that dependency AutoFix applies to. Required when `repos_scope` is `selected`, and must be omitted or empty when it is `all`. Repository IDs that are inactive or unknown to Aikido are silently filtered out by the API and are not reported as configuration drift.
 - `repos_scope` (String) Which code repositories dependency AutoFix applies to: `all` or `selected`. Required when `enabled` is `true`, and ignored by the API otherwise. `all` requires a paying account.
 - `severity_filter` (String) Which dependency upgrades to autofix: `upgrade_all_packages`, `critical_and_high_only`, `critical_issues_only`, or `minor_and_patch_versions_only`. Required when `enabled` is `true`, and ignored by the API otherwise.
 - `use_aikido_library_for_major` (Boolean) Whether Aikido Libraries are used to avoid major version upgrades where available. Required when `enabled` is `true`, and ignored by the API otherwise. Has no effect when `severity_filter` is `minor_and_patch_versions_only`, since that filter excludes major upgrades.

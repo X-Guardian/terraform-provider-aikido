@@ -54,7 +54,7 @@ resource "aikido_autofix_sast" "this" {
 
 ### Optional
 
-- `repo_ids` (Set of Number) Code repository IDs that SAST and IaC AutoFix applies to. Required when `repos_scope` is `selected`, and must be omitted or empty when it is `all`. Repository IDs that are inactive or unknown to Aikido are silently filtered out by the API and are not reported as configuration drift.
+- `repo_ids` (Set of String) Code repository IDs that SAST and IaC AutoFix applies to. Required when `repos_scope` is `selected`, and must be omitted or empty when it is `all`. Repository IDs that are inactive or unknown to Aikido are silently filtered out by the API and are not reported as configuration drift.
 - `repos_scope` (String) Which code repositories SAST and IaC AutoFix applies to: `all` or `selected`. Required when `enabled` is `true`, and ignored by the API otherwise. `all` requires a paying account.
 - `severity_filter` (String) Which findings to autofix: `critical_issues_only`, `critical_and_high_only`, or `all`. Required when `enabled` is `true`, and ignored by the API otherwise.
 
