@@ -10,7 +10,7 @@ import (
 
 // ZenApp represents a Zen app in the list response.
 type ZenApp struct {
-	ID           string  `json:"id"`
+	ID           int     `json:"id"`
 	Name         string  `json:"name"`
 	CreatedAt    int64   `json:"created_at"`
 	CodeRepoID   int     `json:"code_repo_id"`
@@ -23,7 +23,7 @@ type ZenApp struct {
 
 // ZenAppDetail represents the detailed response from GET /firewall/apps/{id}.
 type ZenAppDetail struct {
-	ID              string  `json:"id"`
+	ID              int     `json:"id"`
 	Name            string  `json:"name"`
 	CreatedAt       int64   `json:"created_at"`
 	AmountInstances int     `json:"amount_instances"`

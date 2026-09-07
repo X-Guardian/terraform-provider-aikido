@@ -275,7 +275,7 @@ func (r *ZenAppResource) ImportState(ctx context.Context, req resource.ImportSta
 
 // mapAppToModel populates the model from an API response. Does NOT overwrite Token.
 func (r *ZenAppResource) mapAppToModel(app *client.ZenAppDetail, data *ZenAppResourceModel) {
-	data.ID = types.StringValue(app.ID)
+	data.ID = types.StringValue(strconv.Itoa(app.ID))
 	data.Name = types.StringValue(app.Name)
 	data.Environment = types.StringValue(app.Environment)
 	data.TokenHint = types.StringValue(app.TokenHint)
