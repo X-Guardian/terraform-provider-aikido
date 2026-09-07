@@ -44,7 +44,7 @@ func TestGetZenApp(t *testing.T) {
 			t.Errorf("unexpected path: %s", r.URL.Path)
 		}
 		mustEncode(t, w, ZenAppDetail{
-			ID:          "42",
+			ID:          42,
 			Name:        "my-app",
 			Environment: "production",
 			HasToken:    true,
@@ -81,8 +81,8 @@ func TestGetZenApp_NotFound(t *testing.T) {
 func TestListZenApps(t *testing.T) {
 	server, c := newTestServer(func(w http.ResponseWriter, r *http.Request) {
 		mustEncode(t, w, []ZenApp{
-			{ID: "1", Name: "app-a", Environment: "production", Blocking: true},
-			{ID: "2", Name: "app-b", Environment: "staging", Blocking: false},
+			{ID: 1, Name: "app-a", Environment: "production", Blocking: true},
+			{ID: 2, Name: "app-b", Environment: "staging", Blocking: false},
 		})
 	})
 	defer server.Close()

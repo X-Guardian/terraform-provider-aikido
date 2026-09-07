@@ -3,6 +3,7 @@ package provider
 import (
 	"context"
 	"fmt"
+	"strconv"
 
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/datasource/schema"
@@ -116,7 +117,7 @@ func (d *ZenAppsDataSource) Read(ctx context.Context, req datasource.ReadRequest
 			codeRepoName = types.StringValue(*app.CodeRepoName)
 		}
 		data.Apps[i] = ZenAppDataSourceModel{
-			ID:           types.StringValue(app.ID),
+			ID:           types.StringValue(strconv.Itoa(app.ID)),
 			Name:         types.StringValue(app.Name),
 			Environment:  types.StringValue(app.Environment),
 			Blocking:     types.BoolValue(app.Blocking),
