@@ -280,6 +280,7 @@ func (r *ZenAppResource) mapAppToModel(app *client.ZenAppDetail, data *ZenAppRes
 	data.Environment = types.StringValue(app.Environment)
 	data.TokenHint = types.StringValue(app.TokenHint)
 	data.HasToken = types.BoolValue(app.HasToken)
+	data.Blocking = types.BoolValue(app.Blocking)
 
 	if app.CodeRepoID > 0 {
 		data.RepoID = types.StringValue(strconv.Itoa(app.CodeRepoID))

@@ -32,6 +32,7 @@ type ZenAppDetail struct {
 	HasToken        bool    `json:"has_token"`
 	TokenHint       string  `json:"token_hint"`
 	Environment     string  `json:"environment"`
+	Blocking        bool    `json:"blocking"`
 }
 
 // CreateZenAppRequest is the request body for creating a Zen app.
