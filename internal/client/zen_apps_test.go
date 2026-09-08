@@ -49,6 +49,7 @@ func TestGetZenApp(t *testing.T) {
 			Environment: "production",
 			HasToken:    true,
 			TokenHint:   "zen-***-123",
+			Blocking:    true,
 		})
 	})
 	defer server.Close()
@@ -62,6 +63,9 @@ func TestGetZenApp(t *testing.T) {
 	}
 	if !app.HasToken {
 		t.Error("expected has_token true")
+	}
+	if !app.Blocking {
+		t.Error("expected blocking true")
 	}
 }
 
