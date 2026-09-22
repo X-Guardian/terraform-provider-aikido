@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/http"
 	"strings"
+	"sync/atomic"
 	"testing"
 )
 
@@ -205,5 +206,101 @@ func TestDeleteCloud_NotFound(t *testing.T) {
 	err := c.DeleteCloud(context.Background(), 999)
 	if err != nil {
 		t.Fatalf("expected no error for already-deleted cloud, got: %v", err)
+	}
+}
+
+func TestGetCloud_RequestsMaxPageSize(t *testing.T) {
+	var perPage string
+	server, c := newTestServer(func(w http.ResponseWriter, r *http.Request) {
+		perPage = r.URL.Query().Get("per_page")
+		mustEncode(t, w, []Cloud{{ID: 1, Name: "aws-prod"}})
+	})
+	defer server.Close()
+
+	if _, err := c.GetCloud(context.Background(), 1); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if perPage != "100" {
+		t.Errorf("expected per_page=100, got %q", perPage)
+	}
+}
+
+func TestGetCloud_ServesRepeatedReadsFromCache(t *testing.T) {
+	var calls atomic.Int32
+	server, c := newTestServer(func(w http.ResponseWriter, r *http.Request) {
+		calls.Add(1)
+		mustEncode(t, w, []Cloud{{ID: 1, Name: "one"}, {ID: 2, Name: "two"}})
+	})
+	defer server.Close()
+
+	for _, id := range []int{1, 2, 1, 2} {
+		if _, err := c.GetCloud(context.Background(), id); err != nil {
+			t.Fatalf("unexpected error for %d: %v", id, err)
+		}
+	}
+	if got := calls.Load(); got != 1 {
+		t.Errorf("expected 1 list request for 4 reads, got %d", got)
+	}
+}
+
+func TestGetCloud_RefetchesOnceOnMiss(t *testing.T) {
+	var calls atomic.Int32
+	server, c := newTestServer(func(w http.ResponseWriter, r *http.Request) {
+		n := calls.Add(1)
+		clouds := []Cloud{{ID: 1, Name: "one"}}
+		if n > 1 {
+			clouds = append(clouds, Cloud{ID: 2, Name: "created-after-first-list"})
+		}
+		mustEncode(t, w, clouds)
+	})
+	defer server.Close()
+
+	if _, err := c.GetCloud(context.Background(), 1); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	cloud, err := c.GetCloud(context.Background(), 2)
+	if err != nil {
+		t.Fatalf("expected refetch to find cloud 2, got error: %v", err)
+	}
+	if cloud.Name != "created-after-first-list" {
+		t.Errorf("unexpected cloud: %+v", cloud)
+	}
+	if got := calls.Load(); got != 2 {
+		t.Errorf("expected exactly 2 list requests (initial + one refetch), got %d", got)
+	}
+}
+
+func TestCreateAWSCloud_InvalidatesCloudsCache(t *testing.T) {
+	var lists atomic.Int32
+	server, c := newTestServer(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPost {
+			mustEncode(t, w, map[string]int{"id": 7})
+			return
+		}
+		n := lists.Add(1)
+		clouds := []Cloud{{ID: 1, Name: "one"}}
+		if n > 1 {
+			clouds = append(clouds, Cloud{ID: 7, Name: "new"})
+		}
+		mustEncode(t, w, clouds)
+	})
+	defer server.Close()
+
+	if _, err := c.ListClouds(context.Background()); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	id, err := c.CreateAWSCloud(context.Background(), CreateAWSCloudRequest{})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	cloud, err := c.GetCloud(context.Background(), id)
+	if err != nil {
+		t.Fatalf("expected the created cloud to be readable, got: %v", err)
+	}
+	if cloud.Name != "new" {
+		t.Errorf("unexpected cloud: %+v", cloud)
+	}
+	if got := lists.Load(); got != 2 {
+		t.Errorf("expected 2 list requests (before and after create), got %d", got)
 	}
 }

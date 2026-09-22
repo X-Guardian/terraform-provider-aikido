@@ -67,73 +67,79 @@ type KubernetesCloudResponse struct {
 }
 
 // cloudsPageSize is the per_page value used when listing clouds.
-// Matches the API maximum documented at GET /clouds (per_page max 20).
-const cloudsPageSize = 20
+// Matches the API maximum documented at GET /clouds (per_page max 100).
+const cloudsPageSize = 100
 
-// GetCloud retrieves a single cloud by ID by paginating through the list endpoint.
+// GetCloud retrieves a single cloud by ID. The API has no get-by-id endpoint, so
+// the lookup goes through the cached cloud list; on a miss the list is fetched
+// again once, because the cloud may have been created since the last fetch.
 func (c *AikidoClient) GetCloud(ctx context.Context, cloudID int) (*Cloud, error) {
-	page := 0
-	for {
-		params := url.Values{}
-		params.Set("page", strconv.Itoa(page))
-		params.Set("per_page", strconv.Itoa(cloudsPageSize))
-
-		clouds, err := c.getCloudsPage(ctx, params)
-		if err != nil {
-			return nil, err
-		}
-
-		if len(clouds) == 0 {
-			return nil, fmt.Errorf("cloud with ID %d not found", cloudID)
-		}
-
-		for i := range clouds {
-			if clouds[i].ID == cloudID {
-				return &clouds[i], nil
-			}
-		}
-
-		if len(clouds) < cloudsPageSize {
-			return nil, fmt.Errorf("cloud with ID %d not found", cloudID)
-		}
-
-		page++
+	clouds, err := c.cloudsCache.getOrFetch(ctx, c.fetchAllClouds)
+	if err != nil {
+		return nil, err
 	}
+	if cloud := findCloud(clouds, cloudID); cloud != nil {
+		return cloud, nil
+	}
+	c.cloudsCache.invalidate()
+	clouds, err = c.cloudsCache.getOrFetch(ctx, c.fetchAllClouds)
+	if err != nil {
+		return nil, err
+	}
+	if cloud := findCloud(clouds, cloudID); cloud != nil {
+		return cloud, nil
+	}
+	return nil, fmt.Errorf("cloud with ID %d not found", cloudID)
 }
 
-// ListClouds returns all cloud environments by paginating through every page.
+func findCloud(clouds []Cloud, cloudID int) *Cloud {
+	for i := range clouds {
+		if clouds[i].ID == cloudID {
+			cloud := clouds[i]
+			return &cloud
+		}
+	}
+	return nil
+}
+
+// ListClouds returns all cloud environments, served from the cloud list cache.
 func (c *AikidoClient) ListClouds(ctx context.Context) ([]Cloud, error) {
+	clouds, err := c.cloudsCache.getOrFetch(ctx, c.fetchAllClouds)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]Cloud, len(clouds))
+	copy(out, clouds)
+	return out, nil
+}
+
+// fetchAllClouds pages through GET /clouds and returns every cloud.
+func (c *AikidoClient) fetchAllClouds(ctx context.Context) ([]Cloud, error) {
 	var allClouds []Cloud
 	page := 0
-
 	for {
 		params := url.Values{}
 		params.Set("page", strconv.Itoa(page))
 		params.Set("per_page", strconv.Itoa(cloudsPageSize))
-
 		clouds, err := c.getCloudsPage(ctx, params)
 		if err != nil {
 			return nil, err
 		}
-
 		if len(clouds) == 0 {
 			break
 		}
-
 		allClouds = append(allClouds, clouds...)
-
 		if len(clouds) < cloudsPageSize {
 			break
 		}
-
 		page++
 	}
-
 	return allClouds, nil
 }
 
 // createCloud posts to a cloud provider endpoint and returns the created ID.
 func (c *AikidoClient) createCloud(ctx context.Context, path string, body interface{}) (int, error) {
+	c.cloudsCache.invalidate()
 	resp, err := c.DoRequest(ctx, http.MethodPost, path, body)
 	if err != nil {
 		return 0, fmt.Errorf("creating cloud: %w", err)
@@ -191,6 +197,7 @@ func (c *AikidoClient) CreateKubernetesCloud(ctx context.Context, req CreateKube
 
 // DeleteCloud deletes a cloud environment by ID.
 func (c *AikidoClient) DeleteCloud(ctx context.Context, cloudID int) error {
+	c.cloudsCache.invalidate()
 	resp, err := c.DoRequest(ctx, http.MethodDelete, fmt.Sprintf("/clouds/%d", cloudID), nil)
 	if err != nil {
 		return fmt.Errorf("deleting cloud: %w", err)

@@ -339,3 +339,75 @@ func (c *containersCache) invalidate(ctx context.Context) {
 		tflog.Debug(ctx, "containers cache invalidated", nil)
 	}
 }
+
+// cloudsCache holds one recent copy of the full cloud list. The API has no
+// get-by-id endpoint, so every cloud read otherwise pages through the whole
+// list; with many clouds that alone exhausts the workspace rate limit.
+type cloudsCache struct {
+	ttl     time.Duration
+	sf      singleflight.Group
+	mu      sync.RWMutex
+	clouds  []Cloud
+	expires time.Time
+}
+
+func newCloudsCache(ttl time.Duration) *cloudsCache {
+	return &cloudsCache{ttl: ttl}
+}
+
+func (c *cloudsCache) get() ([]Cloud, bool) {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	if c.clouds == nil || time.Now().After(c.expires) {
+		return nil, false
+	}
+	return c.clouds, true
+}
+
+func (c *cloudsCache) put(clouds []Cloud) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.clouds = clouds
+	c.expires = time.Now().Add(c.ttl)
+}
+
+// invalidate drops the cached list so the next read refetches. Called after
+// every create and delete, and after a lookup miss.
+func (c *cloudsCache) invalidate() {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.clouds = nil
+}
+
+func (c *cloudsCache) getOrFetch(ctx context.Context, loader func(context.Context) ([]Cloud, error)) ([]Cloud, error) {
+	if clouds, ok := c.get(); ok {
+		tflog.Debug(ctx, "clouds cache hit", map[string]interface{}{"cloud_count": len(clouds)})
+		return clouds, nil
+	}
+	v, err, shared := c.sf.Do("clouds", func() (any, error) {
+		if clouds, ok := c.get(); ok {
+			return clouds, nil
+		}
+		tflog.Debug(ctx, "clouds cache miss, fetching")
+		clouds, err := loader(ctx)
+		if err != nil {
+			return nil, err
+		}
+		if clouds == nil {
+			clouds = []Cloud{}
+		}
+		c.put(clouds)
+		return clouds, nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	if shared {
+		tflog.Debug(ctx, "clouds cache fetch coalesced via singleflight")
+	}
+	clouds, ok := v.([]Cloud)
+	if !ok {
+		return nil, fmt.Errorf("clouds cache: unexpected singleflight value type %T", v)
+	}
+	return clouds, nil
+}
