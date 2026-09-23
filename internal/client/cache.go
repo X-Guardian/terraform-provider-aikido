@@ -364,10 +364,14 @@ func (c *cloudsCache) get() ([]Cloud, bool) {
 	return c.clouds, true
 }
 
+// put stores its own copy: the cached slice is shared by every reader for the whole TTL, so it must not alias a
+// slice the caller still holds.
 func (c *cloudsCache) put(clouds []Cloud) {
+	stored := make([]Cloud, len(clouds))
+	copy(stored, clouds)
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	c.clouds = clouds
+	c.clouds = stored
 	c.expires = time.Now().Add(c.ttl)
 }
 
@@ -377,6 +381,34 @@ func (c *cloudsCache) invalidate() {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	c.clouds = nil
+}
+
+// refresh forces one fetch and swaps in the result. Same request count as invalidate followed by getOrFetch, but it
+// never leaves the cache empty, so concurrent readers keep hitting the previous list instead of piling into the fetch.
+func (c *cloudsCache) refresh(ctx context.Context, loader func(context.Context) ([]Cloud, error)) ([]Cloud, error) {
+	v, err, shared := c.sf.Do("clouds", func() (any, error) {
+		tflog.Debug(ctx, "clouds cache refresh, fetching")
+		clouds, err := loader(ctx)
+		if err != nil {
+			return nil, err
+		}
+		if clouds == nil {
+			clouds = []Cloud{}
+		}
+		c.put(clouds)
+		return clouds, nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	if shared {
+		tflog.Debug(ctx, "clouds cache refresh coalesced via singleflight")
+	}
+	clouds, ok := v.([]Cloud)
+	if !ok {
+		return nil, fmt.Errorf("clouds cache: unexpected singleflight value type %T", v)
+	}
+	return clouds, nil
 }
 
 func (c *cloudsCache) getOrFetch(ctx context.Context, loader func(context.Context) ([]Cloud, error)) ([]Cloud, error) {

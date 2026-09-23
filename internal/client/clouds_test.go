@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/http"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"testing"
 )
@@ -302,5 +303,209 @@ func TestCreateAWSCloud_InvalidatesCloudsCache(t *testing.T) {
 	}
 	if got := lists.Load(); got != 2 {
 		t.Errorf("expected 2 list requests (before and after create), got %d", got)
+	}
+}
+
+// As with DeleteCloud, the ordering only matters while a reader is in flight: invalidating before
+// the POST lets that reader cache the pre-create list, which then hides the new cloud for the TTL.
+func TestCreateAWSCloud_InvalidatesAfterTheWrite(t *testing.T) {
+	var created atomic.Bool
+	postReceived := make(chan struct{})
+	readerDone := make(chan struct{})
+
+	server, c := newTestServer(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPost {
+			close(postReceived)
+			<-readerDone
+			created.Store(true)
+			mustEncode(t, w, map[string]int{"id": 7})
+			return
+		}
+		clouds := []Cloud{{ID: 1, Name: "one"}}
+		if created.Load() {
+			clouds = append(clouds, Cloud{ID: 7, Name: "new"})
+		}
+		mustEncode(t, w, clouds)
+	})
+	defer server.Close()
+
+	if _, err := c.ListClouds(context.Background()); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		<-postReceived
+		_, _ = c.ListClouds(context.Background())
+		close(readerDone)
+	}()
+
+	id, err := c.CreateAWSCloud(context.Background(), CreateAWSCloudRequest{})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	wg.Wait()
+
+	clouds, err := c.ListClouds(context.Background())
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if findCloud(clouds, id) == nil {
+		t.Errorf("created cloud %d hidden by a stale cache: ListClouds returns %+v", id, clouds)
+	}
+}
+
+func TestFetchAllClouds_PagesUntilShortPage(t *testing.T) {
+	var pages []string
+	server, c := newTestServer(func(w http.ResponseWriter, r *http.Request) {
+		page := r.URL.Query().Get("page")
+		pages = append(pages, page)
+		switch page {
+		case "0":
+			full := make([]Cloud, cloudsPageSize)
+			for i := range full {
+				full[i] = Cloud{ID: i + 1, Name: "page0"}
+			}
+			mustEncode(t, w, full)
+		case "1":
+			mustEncode(t, w, []Cloud{{ID: 101, Name: "page1"}})
+		default:
+			t.Errorf("unexpected page request: %s", page)
+			mustEncode(t, w, []Cloud{})
+		}
+	})
+	defer server.Close()
+
+	clouds, err := c.ListClouds(context.Background())
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(clouds) != cloudsPageSize+1 {
+		t.Errorf("expected %d clouds across both pages, got %d", cloudsPageSize+1, len(clouds))
+	}
+	if len(pages) != 2 {
+		t.Errorf("expected to stop after the short page, got requests for pages %v", pages)
+	}
+	if clouds[cloudsPageSize].ID != 101 {
+		t.Errorf("expected the second page to be appended, got %+v", clouds[cloudsPageSize])
+	}
+}
+
+// A lookup miss costs exactly one refetch, and the reads after it stay cached.
+func TestGetCloud_MissCostsOneRefetch(t *testing.T) {
+	var calls atomic.Int32
+	server, c := newTestServer(func(w http.ResponseWriter, r *http.Request) {
+		calls.Add(1)
+		mustEncode(t, w, []Cloud{{ID: 1, Name: "one"}})
+	})
+	defer server.Close()
+
+	if _, err := c.GetCloud(context.Background(), 1); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	before := calls.Load()
+	if _, err := c.GetCloud(context.Background(), 999); err == nil {
+		t.Fatal("expected an error for an absent cloud")
+	}
+	if got := calls.Load() - before; got != 1 {
+		t.Errorf("expected 1 refetch for a miss, got %d", got)
+	}
+
+	after := calls.Load()
+	for i := 0; i < 3; i++ {
+		if _, err := c.GetCloud(context.Background(), 1); err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+	}
+	if got := calls.Load() - after; got != 0 {
+		t.Errorf("expected reads after a miss to be cached, got %d extra scans", got)
+	}
+}
+
+// The ordering bug needs a reader in flight during the write: invalidating before the DELETE lets
+// that reader repopulate the cache with the still-present cloud, which then outlives the delete for
+// the rest of the TTL. The handler blocks the DELETE until a concurrent list has been served.
+func TestDeleteCloud_InvalidatesAfterTheWrite(t *testing.T) {
+	var deleted atomic.Bool
+	deleteReceived := make(chan struct{})
+	readerDone := make(chan struct{})
+
+	server, c := newTestServer(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodDelete {
+			// Hold the DELETE open so a reader runs inside the window between an early
+			// invalidate and the write actually landing.
+			close(deleteReceived)
+			<-readerDone
+			deleted.Store(true)
+			w.WriteHeader(http.StatusOK)
+			mustEncode(t, w, map[string]bool{"success": true})
+			return
+		}
+		if deleted.Load() {
+			mustEncode(t, w, []Cloud{})
+			return
+		}
+		mustEncode(t, w, []Cloud{{ID: 42, Name: "doomed"}})
+	})
+	defer server.Close()
+
+	// Prime the cache so the pre-delete list is what a racing reader would restore.
+	if _, err := c.GetCloud(context.Background(), 42); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		<-deleteReceived
+		_, _ = c.ListClouds(context.Background())
+		close(readerDone)
+	}()
+
+	if err := c.DeleteCloud(context.Background(), 42); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	wg.Wait()
+
+	if _, err := c.GetCloud(context.Background(), 42); err == nil {
+		t.Error("expected the deleted cloud to be gone, but it was served from a stale cache")
+	}
+}
+
+func TestCreateKubernetesCloud_InvalidatesCloudsCache(t *testing.T) {
+	var created atomic.Bool
+	server, c := newTestServer(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPost {
+			created.Store(true)
+			mustEncode(t, w, map[string]interface{}{"id": 8, "endpoint": "e", "agent_token": "t"})
+			return
+		}
+		clouds := []Cloud{{ID: 1, Name: "one"}}
+		if created.Load() {
+			clouds = append(clouds, Cloud{ID: 8, Name: "k8s"})
+		}
+		mustEncode(t, w, clouds)
+	})
+	defer server.Close()
+
+	if _, err := c.ListClouds(context.Background()); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	resp, err := c.CreateKubernetesCloud(context.Background(), CreateKubernetesCloudRequest{})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// Asserted through ListClouds rather than GetCloud: GetCloud refetches on a miss either way, which
+	// would repopulate the cache and hide the missing invalidation.
+	clouds, err := c.ListClouds(context.Background())
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if findCloud(clouds, resp.ID) == nil {
+		t.Errorf("create did not invalidate the cache: ListClouds still returns %+v", clouds)
 	}
 }

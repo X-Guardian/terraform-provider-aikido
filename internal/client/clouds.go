@@ -81,8 +81,7 @@ func (c *AikidoClient) GetCloud(ctx context.Context, cloudID int) (*Cloud, error
 	if cloud := findCloud(clouds, cloudID); cloud != nil {
 		return cloud, nil
 	}
-	c.cloudsCache.invalidate()
-	clouds, err = c.cloudsCache.getOrFetch(ctx, c.fetchAllClouds)
+	clouds, err = c.cloudsCache.refresh(ctx, c.fetchAllClouds)
 	if err != nil {
 		return nil, err
 	}
@@ -139,12 +138,13 @@ func (c *AikidoClient) fetchAllClouds(ctx context.Context) ([]Cloud, error) {
 
 // createCloud posts to a cloud provider endpoint and returns the created ID.
 func (c *AikidoClient) createCloud(ctx context.Context, path string, body interface{}) (int, error) {
-	c.cloudsCache.invalidate()
 	resp, err := c.DoRequest(ctx, http.MethodPost, path, body)
 	if err != nil {
 		return 0, fmt.Errorf("creating cloud: %w", err)
 	}
 	defer resp.Body.Close()
+
+	c.cloudsCache.invalidate()
 
 	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusCreated {
 		respBody, _ := io.ReadAll(resp.Body)
@@ -192,17 +192,20 @@ func (c *AikidoClient) CreateKubernetesCloud(ctx context.Context, req CreateKube
 		return nil, fmt.Errorf("decoding kubernetes cloud response: %w", err)
 	}
 
+	c.cloudsCache.invalidate()
+
 	return &k8sResp, nil
 }
 
 // DeleteCloud deletes a cloud environment by ID.
 func (c *AikidoClient) DeleteCloud(ctx context.Context, cloudID int) error {
-	c.cloudsCache.invalidate()
 	resp, err := c.DoRequest(ctx, http.MethodDelete, fmt.Sprintf("/clouds/%d", cloudID), nil)
 	if err != nil {
 		return fmt.Errorf("deleting cloud: %w", err)
 	}
 	defer resp.Body.Close()
+
+	c.cloudsCache.invalidate()
 
 	if resp.StatusCode == http.StatusNotFound {
 		return nil // Already deleted
