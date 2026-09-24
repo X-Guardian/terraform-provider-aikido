@@ -1,7 +1,7 @@
 data "aikido_code_repos" "all" {}
 
 locals {
-  api_server = one([for r in data.aikido_code_repos.all.repos : r if r.name == "yulife-api-server"])
+  api_server = one([for r in data.aikido_code_repos.all.repos : r if r.name == "example-api-server"])
 }
 
 resource "aikido_code_repo_config" "api_server" {
