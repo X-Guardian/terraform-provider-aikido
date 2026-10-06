@@ -156,6 +156,7 @@ func (p *AikidoProvider) Resources(ctx context.Context) []func() resource.Resour
 		NewTeamResourceLinkResource,
 		NewCodeRepoConfigResource,
 		NewCodeRepoCIChecksResource,
+		NewCodeRepoCIChecksDefaultResource,
 		NewAutofixDependencyResource,
 		NewAutofixSastResource,
 		NewAutofixPentestResource,
