@@ -65,6 +65,18 @@ resource "aikido_autofix_sast" "disabled" {
 
 Import is supported using the following syntax:
 
+In Terraform v1.5.0 and later, the [`import` block](https://developer.hashicorp.com/terraform/language/import) can be used with the `id` attribute, for example:
+
+```terraform
+# SAST and IaC AutoFix settings are workspace-wide, so the import ID is ignored.
+# The conventional value is "sast".
+# Note: importing fails if AutoFix is disabled for the whole workspace in Aikido.
+import {
+  to = aikido_autofix_sast.this
+  id = "sast"
+}
+```
+
 The [`terraform import` command](https://developer.hashicorp.com/terraform/cli/commands/import) can be used, for example:
 
 ```shell

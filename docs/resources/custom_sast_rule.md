@@ -13,7 +13,7 @@ Manages a custom SAST (semgrep) rule in Aikido Security.
 ## Example Usage
 
 ```terraform
-resource "aikido_custom_rule" "no_hardcoded_secrets" {
+resource "aikido_custom_sast_rule" "no_hardcoded_secrets" {
   semgrep_rule = <<-EOT
     rules:
       - id: no-hardcoded-api-key
@@ -56,9 +56,19 @@ resource "aikido_custom_rule" "no_hardcoded_secrets" {
 
 Import is supported using the following syntax:
 
+In Terraform v1.5.0 and later, the [`import` block](https://developer.hashicorp.com/terraform/language/import) can be used with the `id` attribute, for example:
+
+```terraform
+# Import a custom SAST rule by its ID
+import {
+  to = aikido_custom_sast_rule.no_hardcoded_secrets
+  id = "123"
+}
+```
+
 The [`terraform import` command](https://developer.hashicorp.com/terraform/cli/commands/import) can be used, for example:
 
 ```shell
 # Import a custom SAST rule by its ID
-terraform import aikido_custom_rule.no_hardcoded_secrets "123"
+terraform import aikido_custom_sast_rule.no_hardcoded_secrets "123"
 ```

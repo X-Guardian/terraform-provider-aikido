@@ -1,4 +1,4 @@
-resource "aikido_custom_rule" "no_hardcoded_secrets" {
+resource "aikido_custom_sast_rule" "no_hardcoded_secrets" {
   semgrep_rule = <<-EOT
     rules:
       - id: no-hardcoded-api-key

@@ -50,6 +50,16 @@ output "zen_token" {
 
 Import is supported using the following syntax:
 
+In Terraform v1.5.0 and later, the [`import` block](https://developer.hashicorp.com/terraform/language/import) can be used with the `id` attribute, for example:
+
+```terraform
+# Import a Zen app by its ID (token will not be available after import)
+import {
+  to = aikido_zen_app.api
+  id = "123"
+}
+```
+
 The [`terraform import` command](https://developer.hashicorp.com/terraform/cli/commands/import) can be used, for example:
 
 ```shell

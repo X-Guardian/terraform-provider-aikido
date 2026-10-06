@@ -69,6 +69,18 @@ resource "aikido_autofix_dependency" "disabled" {
 
 Import is supported using the following syntax:
 
+In Terraform v1.5.0 and later, the [`import` block](https://developer.hashicorp.com/terraform/language/import) can be used with the `id` attribute, for example:
+
+```terraform
+# Dependency AutoFix settings are workspace-wide, so the import ID is ignored.
+# The conventional value is "dependency".
+# Note: importing fails if AutoFix is disabled for the whole workspace in Aikido.
+import {
+  to = aikido_autofix_dependency.this
+  id = "dependency"
+}
+```
+
 The [`terraform import` command](https://developer.hashicorp.com/terraform/cli/commands/import) can be used, for example:
 
 ```shell

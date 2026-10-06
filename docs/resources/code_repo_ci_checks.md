@@ -106,6 +106,16 @@ The API accepts this value but does not return it, so Terraform cannot detect dr
 
 Import is supported using the following syntax:
 
+In Terraform v1.5.0 and later, the [`import` block](https://developer.hashicorp.com/terraform/language/import) can be used with the `id` attribute, for example:
+
+```terraform
+# Import a code repository's CI checks configuration by its repo ID
+import {
+  to = aikido_code_repo_ci_checks.api_server
+  id = "410013"
+}
+```
+
 The [`terraform import` command](https://developer.hashicorp.com/terraform/cli/commands/import) can be used, for example:
 
 ```shell
