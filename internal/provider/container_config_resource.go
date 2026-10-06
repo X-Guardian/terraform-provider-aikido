@@ -281,7 +281,9 @@ func (r *ContainerConfigResource) Update(ctx context.Context, req resource.Updat
 		return
 	}
 
-	if !plan.Active.IsNull() && !plan.Active.Equal(state.Active) {
+	// UseStateForUnknown leaves an omitted attribute unknown when its prior state is null, such
+	// as after an import, so unknown values are skipped as well as null ones.
+	if !plan.Active.IsNull() && !plan.Active.IsUnknown() && !plan.Active.Equal(state.Active) {
 		if plan.Active.ValueBool() {
 			if err := r.client.ActivateContainer(ctx, containerID); err != nil {
 				resp.Diagnostics.AddError("Error Activating Container", err.Error())
@@ -295,14 +297,14 @@ func (r *ContainerConfigResource) Update(ctx context.Context, req resource.Updat
 		}
 	}
 
-	if !plan.Sensitivity.IsNull() && !plan.Sensitivity.Equal(state.Sensitivity) {
+	if !plan.Sensitivity.IsNull() && !plan.Sensitivity.IsUnknown() && !plan.Sensitivity.Equal(state.Sensitivity) {
 		if err := r.client.UpdateContainerSensitivity(ctx, containerID, plan.Sensitivity.ValueString()); err != nil {
 			resp.Diagnostics.AddError("Error Updating Sensitivity", err.Error())
 			return
 		}
 	}
 
-	if !plan.InternetExposed.IsNull() && !plan.InternetExposed.Equal(state.InternetExposed) {
+	if !plan.InternetExposed.IsNull() && !plan.InternetExposed.IsUnknown() && !plan.InternetExposed.Equal(state.InternetExposed) {
 		if err := r.client.UpdateContainerConnectivity(ctx, containerID, plan.InternetExposed.ValueString()); err != nil {
 			resp.Diagnostics.AddError("Error Updating Connectivity", err.Error())
 			return
@@ -384,7 +386,10 @@ func (r *ContainerConfigResource) ImportState(ctx context.Context, req resource.
 
 // applyConfig applies configured settings during create. Current is the container's state before any changes, used to skip no-op updates.
 func (r *ContainerConfigResource) applyConfig(ctx context.Context, containerID int, data *ContainerConfigResourceModel, current *client.ContainerDetail, diags *diag.Diagnostics) {
-	if !data.Active.IsNull() {
+	// Active, sensitivity and internet_exposed are optional and computed, so they are unknown
+	// rather than null when omitted. Acting on an unknown value would send an empty string, or
+	// deactivate the container.
+	if !data.Active.IsNull() && !data.Active.IsUnknown() {
 		if data.Active.ValueBool() {
 			if err := r.client.ActivateContainer(ctx, containerID); err != nil {
 				diags.AddError("Error Activating Container", err.Error())
@@ -398,14 +403,14 @@ func (r *ContainerConfigResource) applyConfig(ctx context.Context, containerID i
 		}
 	}
 
-	if !data.Sensitivity.IsNull() {
+	if !data.Sensitivity.IsNull() && !data.Sensitivity.IsUnknown() {
 		if err := r.client.UpdateContainerSensitivity(ctx, containerID, data.Sensitivity.ValueString()); err != nil {
 			diags.AddError("Error Updating Sensitivity", err.Error())
 			return
 		}
 	}
 
-	if !data.InternetExposed.IsNull() {
+	if !data.InternetExposed.IsNull() && !data.InternetExposed.IsUnknown() {
 		if err := r.client.UpdateContainerConnectivity(ctx, containerID, data.InternetExposed.ValueString()); err != nil {
 			diags.AddError("Error Updating Connectivity", err.Error())
 			return
@@ -462,12 +467,17 @@ func (r *ContainerConfigResource) mapListContainerToModel(container *client.Cont
 	}
 
 	// Sensitivity and connectivity are only present when the request asked for them. Leaving the
-	// prior value untouched otherwise avoids reporting a spurious change to null.
+	// prior value untouched otherwise avoids reporting a spurious change to null. A value still
+	// unknown from the plan must become null, as state cannot hold unknown values after apply.
 	if container.Sensitivity != nil {
 		data.Sensitivity = types.StringValue(*container.Sensitivity)
+	} else if data.Sensitivity.IsUnknown() {
+		data.Sensitivity = types.StringNull()
 	}
 	if container.Connectivity != nil {
 		data.InternetExposed = types.StringValue(*container.Connectivity)
+	} else if data.InternetExposed.IsUnknown() {
+		data.InternetExposed = types.StringNull()
 	}
 
 	// The API returns 0 (not null) when no code repo is linked; treat both as unlinked.

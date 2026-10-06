@@ -253,8 +253,10 @@ func (r *CodeRepoConfigResource) Update(ctx context.Context, req resource.Update
 		return
 	}
 
-	// Apply active state change.
-	if !plan.Active.IsNull() && !plan.Active.Equal(state.Active) {
+	// Apply active state change. Active, sensitivity and connectivity are optional and computed;
+	// UseStateForUnknown leaves them unknown when omitted and the prior state is null, such as
+	// after an import, so unknown values are skipped as well as null ones.
+	if !plan.Active.IsNull() && !plan.Active.IsUnknown() && !plan.Active.Equal(state.Active) {
 		if plan.Active.ValueBool() {
 			if err := r.client.ActivateCodeRepo(ctx, repoID); err != nil {
 				resp.Diagnostics.AddError("Error Activating Code Repo", err.Error())
@@ -269,7 +271,7 @@ func (r *CodeRepoConfigResource) Update(ctx context.Context, req resource.Update
 	}
 
 	// Apply sensitivity change.
-	if !plan.Sensitivity.IsNull() && !plan.Sensitivity.Equal(state.Sensitivity) {
+	if !plan.Sensitivity.IsNull() && !plan.Sensitivity.IsUnknown() && !plan.Sensitivity.Equal(state.Sensitivity) {
 		if err := r.client.UpdateCodeRepoSensitivity(ctx, repoID, plan.Sensitivity.ValueString()); err != nil {
 			resp.Diagnostics.AddError("Error Updating Sensitivity", err.Error())
 			return
@@ -277,7 +279,7 @@ func (r *CodeRepoConfigResource) Update(ctx context.Context, req resource.Update
 	}
 
 	// Apply connectivity change.
-	if !plan.Connectivity.IsNull() && !plan.Connectivity.Equal(state.Connectivity) {
+	if !plan.Connectivity.IsNull() && !plan.Connectivity.IsUnknown() && !plan.Connectivity.Equal(state.Connectivity) {
 		if err := r.client.UpdateCodeRepoConnectivity(ctx, repoID, plan.Connectivity.ValueString()); err != nil {
 			resp.Diagnostics.AddError("Error Updating Connectivity", err.Error())
 			return
