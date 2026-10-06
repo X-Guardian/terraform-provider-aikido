@@ -32,6 +32,7 @@ resources|cloud_gcp|Cloud
 resources|cloud_kubernetes|Cloud
 resources|code_repo_config|Code Repositories
 resources|code_repo_ci_checks|Code Repositories
+resources|code_repo_ci_checks_default|Code Repositories
 resources|autofix_dependency|AutoFix
 resources|autofix_sast|AutoFix
 resources|autofix_pentest|AutoFix

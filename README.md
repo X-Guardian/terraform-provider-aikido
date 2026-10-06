@@ -22,6 +22,7 @@ The Aikido Terraform provider allows you to manage resources in [Aikido Security
 ### Code Repositories
 - `aikido_code_repo_config` — Manage scanning configuration (sensitivity, connectivity, excluded paths) of an existing code repository.
 - `aikido_code_repo_ci_checks` — Manage CI check settings (failure thresholds, inline comments, code quality and Deep Review scans) for a code repository. Aikido's dashboard calls this PR gating. The API has no delete endpoint, so destroying the resource leaves the settings in place in Aikido.
+- `aikido_code_repo_ci_checks_default` — Manage the workspace default CI check settings applied to newly activated code repositories.
 
 ### AutoFix
 Workspace-wide AutoFix pull request creation settings. Each is a singleton, so only one
