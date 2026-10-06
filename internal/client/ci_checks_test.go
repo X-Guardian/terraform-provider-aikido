@@ -305,6 +305,158 @@ func TestSaveCIChecksConfiguration_OptionalFieldsOmitted(t *testing.T) {
 	}
 }
 
+func TestGetCIChecksDefaultConfiguration(t *testing.T) {
+	server, c := newTestServer(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet || r.URL.Path != "/api/public/v1/repositories/code/continuous_integration/checks/default" {
+			t.Errorf("unexpected request %s %s", r.Method, r.URL.Path)
+		}
+		mustEncode(t, w, map[string]interface{}{
+			"is_enabled":                                     true,
+			"minimum_severity":                               "high",
+			"fail_on_dependency_scan":                        true,
+			"fail_on_sast_scan":                              false,
+			"fail_on_iac_scan":                               true,
+			"fail_on_secrets_scan":                           true,
+			"fail_on_malware_scan":                           true,
+			"fail_on_license_scan":                           true,
+			"minimum_license_severity":                       "critical",
+			"post_inline_comments":                           false,
+			"post_inline_comments_min_severity":              nil,
+			"enable_code_quality_scan":                       false,
+			"post_code_quality_inline_comments_min_severity": "none",
+			"fail_on_code_quality_scan":                      false,
+			"run_deep_audit_pr_scan":                         true,
+		})
+	})
+	defer server.Close()
+
+	config, err := c.GetCIChecksDefaultConfiguration(context.Background())
+	if err != nil {
+		t.Fatalf("GetCIChecksDefaultConfiguration() error = %v", err)
+	}
+
+	if !config.IsEnabled {
+		t.Error("IsEnabled = false, want true")
+	}
+	if config.MinimumSeverity != "high" {
+		t.Errorf("MinimumSeverity = %q, want %q", config.MinimumSeverity, "high")
+	}
+	if config.FailOnSastScan {
+		t.Error("FailOnSastScan = true, want false")
+	}
+	if config.MinimumLicenseSeverity != "critical" {
+		t.Errorf("MinimumLicenseSeverity = %q, want %q", config.MinimumLicenseSeverity, "critical")
+	}
+	if config.PostInlineCommentsMinSeverity != nil {
+		t.Errorf("PostInlineCommentsMinSeverity = %q, want nil", *config.PostInlineCommentsMinSeverity)
+	}
+	if config.PostCodeQualityInlineCommentsMinSeverity != "none" {
+		t.Errorf("PostCodeQualityInlineCommentsMinSeverity = %q, want %q",
+			config.PostCodeQualityInlineCommentsMinSeverity, "none")
+	}
+	if !config.RunDeepAuditPRScan {
+		t.Error("RunDeepAuditPRScan = false, want true")
+	}
+}
+
+func TestGetCIChecksDefaultConfiguration_Error(t *testing.T) {
+	server, c := newTestServer(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusForbidden)
+		mustEncode(t, w, map[string]string{"error": "missing repositories:read scope"})
+	})
+	defer server.Close()
+
+	_, err := c.GetCIChecksDefaultConfiguration(context.Background())
+	if err == nil {
+		t.Fatal("expected an error")
+	}
+	if got := err.Error(); !strings.Contains(got, "missing repositories:read scope") {
+		t.Errorf("error = %q, want it to include the API message", got)
+	}
+}
+
+func TestSaveCIChecksDefaultConfiguration(t *testing.T) {
+	codeQualitySeverity := "medium"
+
+	var body map[string]interface{}
+	server, c := newTestServer(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost || r.URL.Path != "/api/public/v1/repositories/code/continuous_integration/checks/default" {
+			t.Errorf("unexpected request %s %s", r.Method, r.URL.Path)
+		}
+		mustDecode(t, r, &body)
+		mustEncode(t, w, map[string]string{"status": "ok"})
+	})
+	defer server.Close()
+
+	err := c.SaveCIChecksDefaultConfiguration(context.Background(), SaveCIChecksDefaultConfigurationRequest{
+		MinimumSeverity:                          "high",
+		FailOnDependencyScan:                     true,
+		MinimumLicenseSeverity:                   "none",
+		PostInlineCommentsMinSeverity:            "critical",
+		EnableCodeQualityScan:                    true,
+		PostCodeQualityInlineCommentsMinSeverity: &codeQualitySeverity,
+	})
+	if err != nil {
+		t.Fatalf("SaveCIChecksDefaultConfiguration() error = %v", err)
+	}
+
+	if got := body["minimum_severity"]; got != "high" {
+		t.Errorf("minimum_severity = %v, want high", got)
+	}
+	if got := body["fail_on_dependency_scan"]; got != true {
+		t.Errorf("fail_on_dependency_scan = %v, want true", got)
+	}
+	if got := body["post_inline_comments_min_severity"]; got != "critical" {
+		t.Errorf("post_inline_comments_min_severity = %v, want critical", got)
+	}
+	if got := body["post_code_quality_inline_comments_min_severity"]; got != "medium" {
+		t.Errorf("post_code_quality_inline_comments_min_severity = %v, want medium", got)
+	}
+	// The scan flags must be sent even when false: all of them false is how the default is removed.
+	if got, present := body["run_deep_audit_pr_scan"]; !present || got != false {
+		t.Errorf("run_deep_audit_pr_scan = %v (present %v), want an explicit false", got, present)
+	}
+}
+
+func TestSaveCIChecksDefaultConfiguration_CodeQualitySeverityOmitted(t *testing.T) {
+	var body map[string]interface{}
+	server, c := newTestServer(func(w http.ResponseWriter, r *http.Request) {
+		mustDecode(t, r, &body)
+		mustEncode(t, w, map[string]string{"status": "ok"})
+	})
+	defer server.Close()
+
+	err := c.SaveCIChecksDefaultConfiguration(context.Background(), SaveCIChecksDefaultConfigurationRequest{
+		MinimumSeverity:               "low",
+		MinimumLicenseSeverity:        "none",
+		PostInlineCommentsMinSeverity: "none",
+	})
+	if err != nil {
+		t.Fatalf("SaveCIChecksDefaultConfiguration() error = %v", err)
+	}
+
+	if _, present := body["post_code_quality_inline_comments_min_severity"]; present {
+		t.Errorf("post_code_quality_inline_comments_min_severity must be omitted when nil, got %v",
+			body["post_code_quality_inline_comments_min_severity"])
+	}
+}
+
+func TestSaveCIChecksDefaultConfiguration_Error(t *testing.T) {
+	server, c := newTestServer(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusBadRequest)
+		mustEncode(t, w, map[string]string{"error": "Deep Review is not available in this region"})
+	})
+	defer server.Close()
+
+	err := c.SaveCIChecksDefaultConfiguration(context.Background(), SaveCIChecksDefaultConfigurationRequest{})
+	if err == nil {
+		t.Fatal("expected an error")
+	}
+	if got := err.Error(); !strings.Contains(got, "Deep Review is not available in this region") {
+		t.Errorf("error = %q, want it to include the API message", got)
+	}
+}
+
 func TestSaveCIChecksConfiguration_Error(t *testing.T) {
 	server, c := newTestServer(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusBadRequest)

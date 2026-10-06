@@ -15,6 +15,10 @@ import (
 // the create-or-update upsert.
 const ciChecksPath = "/repositories/code/continuous_integration/checks"
 
+// ciChecksDefaultPath is the workspace default CI checks configuration endpoint, applied to newly activated
+// repositories that have no repository-specific configuration.
+const ciChecksDefaultPath = ciChecksPath + "/default"
+
 // ciChecksPageSize is the API maximum documented for per_page on the endpoint.
 const ciChecksPageSize = 100
 
@@ -122,6 +126,93 @@ func (c *AikidoClient) SaveCIChecksConfiguration(ctx context.Context, req SaveCI
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
 		return fmt.Errorf("unexpected status %d saving ci checks configuration: %s", resp.StatusCode, errorBody(body))
+	}
+
+	return nil
+}
+
+// CIChecksDefaultConfiguration is the workspace default CI checks configuration.
+//
+// When no default exists the API returns fallback values with IsEnabled false rather than a 404, so IsEnabled is what
+// distinguishes a configured default from an absent one.
+//
+// PostInlineCommentsMinSeverity is a pointer because the API returns null for it when inline comments are disabled.
+// PostCodeQualityInlineCommentsMinSeverity is "none" rather than null when the code quality scan is disabled.
+// FailOnLicenseScan and PostInlineComments are derived by the API from the severities and are not settable.
+type CIChecksDefaultConfiguration struct {
+	IsEnabled                                bool    `json:"is_enabled"`
+	MinimumSeverity                          string  `json:"minimum_severity"`
+	FailOnDependencyScan                     bool    `json:"fail_on_dependency_scan"`
+	FailOnSastScan                           bool    `json:"fail_on_sast_scan"`
+	FailOnIacScan                            bool    `json:"fail_on_iac_scan"`
+	FailOnSecretsScan                        bool    `json:"fail_on_secrets_scan"`
+	FailOnMalwareScan                        bool    `json:"fail_on_malware_scan"`
+	FailOnLicenseScan                        bool    `json:"fail_on_license_scan"`
+	MinimumLicenseSeverity                   string  `json:"minimum_license_severity"`
+	PostInlineComments                       bool    `json:"post_inline_comments"`
+	PostInlineCommentsMinSeverity            *string `json:"post_inline_comments_min_severity"`
+	EnableCodeQualityScan                    bool    `json:"enable_code_quality_scan"`
+	PostCodeQualityInlineCommentsMinSeverity string  `json:"post_code_quality_inline_comments_min_severity"`
+	FailOnCodeQualityScan                    bool    `json:"fail_on_code_quality_scan"`
+	RunDeepAuditPRScan                       bool    `json:"run_deep_audit_pr_scan"`
+}
+
+// SaveCIChecksDefaultConfigurationRequest is the POST body for the default CI checks configuration endpoint, which
+// creates or replaces the workspace default.
+//
+// The API removes the default when every scan flag (the five fail_on_* vulnerability flags, enable_code_quality_scan
+// and run_deep_audit_pr_scan) is false, so that is also how it is deleted.
+//
+// PostCodeQualityInlineCommentsMinSeverity is omitted when nil: the API ignores it when the code quality scan is
+// disabled, and its enum has no null.
+type SaveCIChecksDefaultConfigurationRequest struct {
+	MinimumSeverity                          string  `json:"minimum_severity"`
+	FailOnDependencyScan                     bool    `json:"fail_on_dependency_scan"`
+	FailOnSastScan                           bool    `json:"fail_on_sast_scan"`
+	FailOnIacScan                            bool    `json:"fail_on_iac_scan"`
+	FailOnSecretsScan                        bool    `json:"fail_on_secrets_scan"`
+	FailOnMalwareScan                        bool    `json:"fail_on_malware_scan"`
+	MinimumLicenseSeverity                   string  `json:"minimum_license_severity"`
+	PostInlineCommentsMinSeverity            string  `json:"post_inline_comments_min_severity"`
+	EnableCodeQualityScan                    bool    `json:"enable_code_quality_scan"`
+	FailOnCodeQualityScan                    bool    `json:"fail_on_code_quality_scan"`
+	PostCodeQualityInlineCommentsMinSeverity *string `json:"post_code_quality_inline_comments_min_severity,omitempty"`
+	RunDeepAuditPRScan                       bool    `json:"run_deep_audit_pr_scan"`
+}
+
+// GetCIChecksDefaultConfiguration retrieves the workspace default CI checks configuration.
+func (c *AikidoClient) GetCIChecksDefaultConfiguration(ctx context.Context) (*CIChecksDefaultConfiguration, error) {
+	resp, err := c.DoRequest(ctx, http.MethodGet, ciChecksDefaultPath, nil)
+	if err != nil {
+		return nil, fmt.Errorf("getting default ci checks configuration: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("unexpected status %d getting default ci checks configuration: %s", resp.StatusCode, errorBody(body))
+	}
+
+	var config CIChecksDefaultConfiguration
+	if err := json.NewDecoder(resp.Body).Decode(&config); err != nil {
+		return nil, fmt.Errorf("decoding default ci checks configuration response: %w", err)
+	}
+
+	return &config, nil
+}
+
+// SaveCIChecksDefaultConfiguration creates, replaces or (with every scan flag false) removes the workspace default CI
+// checks configuration. The {"status": "ok"} response body carries nothing useful.
+func (c *AikidoClient) SaveCIChecksDefaultConfiguration(ctx context.Context, req SaveCIChecksDefaultConfigurationRequest) error {
+	resp, err := c.DoRequest(ctx, http.MethodPost, ciChecksDefaultPath, req)
+	if err != nil {
+		return fmt.Errorf("saving default ci checks configuration: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("unexpected status %d saving default ci checks configuration: %s", resp.StatusCode, errorBody(body))
 	}
 
 	return nil
