@@ -10,6 +10,6 @@ provider "aikido" {
   client_id     = var.aikido_client_id
   client_secret = var.aikido_client_secret
 
-  # Optional: "eu" (default), "us", or "me"
+  # Optional: "eu" (default), "us", "au", or "me"
   region = "eu"
 }

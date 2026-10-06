@@ -76,7 +76,7 @@ The provider authenticates using OAuth2 client credentials. You can obtain a cli
 provider "aikido" {
   client_id     = var.aikido_client_id
   client_secret = var.aikido_client_secret
-  region        = "eu" # "eu" (default), "us", or "me"
+  region        = "eu" # "eu" (default), "us", "au", or "me"
 }
 ```
 
