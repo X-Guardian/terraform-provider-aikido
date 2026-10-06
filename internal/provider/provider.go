@@ -34,6 +34,7 @@ type AikidoProviderModel struct {
 var regionURLs = map[string]string{
 	"eu": "https://app.aikido.dev",
 	"us": "https://app.us.aikido.dev",
+	"au": "https://app.au.aikido.dev",
 	"me": "https://app.me.aikido.dev",
 }
 
@@ -56,10 +57,10 @@ func (p *AikidoProvider) Schema(ctx context.Context, req provider.SchemaRequest,
 				Sensitive:           true,
 			},
 			"region": schema.StringAttribute{
-				MarkdownDescription: "The Aikido region. Valid values: `eu`, `us`, `me`. Defaults to `eu`. Can also be set via the `AIKIDO_REGION` environment variable.",
+				MarkdownDescription: "The Aikido region. Valid values: `eu`, `us`, `au`, `me`. Defaults to `eu`. Can also be set via the `AIKIDO_REGION` environment variable.",
 				Optional:            true,
 				Validators: []validator.String{
-					stringvalidator.OneOf("eu", "us", "me"),
+					stringvalidator.OneOf("eu", "us", "au", "me"),
 				},
 			},
 			"api_url": schema.StringAttribute{
@@ -131,7 +132,7 @@ func (p *AikidoProvider) Configure(ctx context.Context, req provider.ConfigureRe
 		if !ok {
 			resp.Diagnostics.AddError(
 				"Invalid Aikido Region",
-				"The region must be one of: eu, us, me. Got: "+region,
+				"The region must be one of: eu, us, au, me. Got: "+region,
 			)
 			return
 		}

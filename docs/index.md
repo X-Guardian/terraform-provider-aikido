@@ -24,7 +24,7 @@ provider "aikido" {
   client_id     = var.aikido_client_id
   client_secret = var.aikido_client_secret
 
-  # Optional: "eu" (default), "us", or "me"
+  # Optional: "eu" (default), "us", "au", or "me"
   region = "eu"
 }
 ```
@@ -38,4 +38,4 @@ provider "aikido" {
 - `client_id` (String) The OAuth2 client ID for the Aikido API. Can also be set via the `AIKIDO_CLIENT_ID` environment variable.
 - `client_secret` (String, Sensitive) The OAuth2 client secret for the Aikido API. Can also be set via the `AIKIDO_CLIENT_SECRET` environment variable.
 - `rate_limit_tier` (String) The API rate limit tier: `standard` (20 req/min, default) or `enhanced` (50 req/min). Can also be set via the `AIKIDO_RATE_LIMIT_TIER` environment variable.
-- `region` (String) The Aikido region. Valid values: `eu`, `us`, `me`. Defaults to `eu`. Can also be set via the `AIKIDO_REGION` environment variable.
+- `region` (String) The Aikido region. Valid values: `eu`, `us`, `au`, `me`. Defaults to `eu`. Can also be set via the `AIKIDO_REGION` environment variable.
