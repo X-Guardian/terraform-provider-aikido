@@ -38,6 +38,16 @@ resource "aikido_cloud_aws" "production" {
 
 Import is supported using the following syntax:
 
+In Terraform v1.5.0 and later, the [`import` block](https://developer.hashicorp.com/terraform/language/import) can be used with the `id` attribute, for example:
+
+```terraform
+# Import an AWS cloud using the format cloud_id:role_arn
+import {
+  to = aikido_cloud_aws.example
+  id = "123:arn:aws:iam::000000000000:role/aikido-security-readonly-AikidoSecurityRole"
+}
+```
+
 The [`terraform import` command](https://developer.hashicorp.com/terraform/cli/commands/import) can be used, for example:
 
 ```shell

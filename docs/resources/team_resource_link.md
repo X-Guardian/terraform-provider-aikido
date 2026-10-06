@@ -45,6 +45,16 @@ resource "aikido_team_resource_link" "cloud" {
 
 Import is supported using the following syntax:
 
+In Terraform v1.5.0 and later, the [`import` block](https://developer.hashicorp.com/terraform/language/import) can be used with the `id` attribute, for example:
+
+```terraform
+# Import a team resource link using the format team_id:resource_type:resource_id
+import {
+  to = aikido_team_resource_link.repo
+  id = "123:code_repository:456"
+}
+```
+
 The [`terraform import` command](https://developer.hashicorp.com/terraform/cli/commands/import) can be used, for example:
 
 ```shell
