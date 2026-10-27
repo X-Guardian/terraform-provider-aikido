@@ -87,6 +87,7 @@ type AikidoClient struct {
 	usersCache      *usersCache
 	teamsCache      *teamsCache
 	containersCache *containersCache
+	cloudsCache     *cloudsCache
 }
 
 type tokenResponse struct {
@@ -109,6 +110,10 @@ func NewAikidoClient(baseURL, clientID, clientSecret string, tier RateLimitTier)
 		// written by this provider. Every write invalidates the cache, so the TTL only bounds how
 		// stale an out-of-band change can be within a single plan or apply.
 		containersCache: newContainersCache(30 * time.Second),
+		// Clouds: same reasoning as containers. The list is refetched after every
+		// create, delete and lookup miss, so the TTL only bounds staleness from
+		// changes made outside this provider within one plan or apply.
+		cloudsCache: newCloudsCache(30 * time.Second),
 	}
 }
 
